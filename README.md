@@ -43,7 +43,7 @@ let assert Error(read_stream.EndOfStream) = read_stream.read_bytes(rs, 1)
 read_stream.close(rs)
 ```
 
-Further documentation can be found at <https://hexdocs.pm/file_streams>.
+Further documentation can be found at <https://hexdocs.pm/file_streams/>.
 
 ## License
 
