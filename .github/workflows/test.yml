@@ -1,0 +1,30 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup BEAM
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "26.0.2"
+          gleam-version: "0.33.0"
+          rebar3-version: "3"
+
+      - name: Install dependencies
+        run: gleam deps download
+
+      - name: Run tests
+        run: gleam test
+
+      - name: Check code formatting
+        run: gleam format --check src test
