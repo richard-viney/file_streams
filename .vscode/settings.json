@@ -1,6 +1,5 @@
 {
     "editor.rulers": [80],
-    "cSpell.words": ["DICOM", "println", "simplifile"],
   
     "files.exclude": {
       "**/build": true,

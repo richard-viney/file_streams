@@ -11,22 +11,27 @@ pub fn read_stream_test() {
       tmp_file_name,
       bit_array.concat([
         <<-100:int-size(8), 200:int-size(8)>>,
+        // 16-bit integers
         <<
           -3000:little-int-size(16), -3000:big-int-size(16),
           10_000:little-int-size(16), 10_000:big-int-size(16),
         >>,
+        // 32-bit integers
         <<
           -300_000:little-int-size(32), -300_000:big-int-size(32),
           1_000_000:little-int-size(32), 1_000_000:big-int-size(32),
         >>,
+        // 64-bit integers
         <<
           -10_000_000_000:little-int-size(64), -10_000_000_000:big-int-size(64),
           100_000_000_000:little-int-size(64), 100_000_000_000:big-int-size(64),
         >>,
+        // 32-bit floats
         <<
           1.5:little-float-size(32), 1.5:big-float-size(32),
           2.5:little-float-size(64), 2.5:big-float-size(64),
         >>,
+        // 64-bit floats
         <<
           1.0:little-float-size(64), 2.0:little-float-size(64),
           3.0:little-float-size(64),
@@ -82,10 +87,10 @@ pub fn read_stream_test() {
   read_stream.read_float64_be(rs)
   |> should.equal(Ok(2.5))
 
-  read_stream.read_list(rs, read_stream.read_float64_le, 3)
-  |> should.equal(Ok([1.0, 2.0, 3.0]))
+  read_stream.read_list(rs, read_stream.read_float64_le, 2)
+  |> should.equal(Ok([1.0, 2.0]))
 
-  read_stream.read_uint8(rs)
+  read_stream.read_bytes_exact(rs, 9)
   |> should.equal(Error(read_stream.EndOfStream))
 
   read_stream.close(rs)

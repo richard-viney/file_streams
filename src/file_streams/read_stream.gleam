@@ -1,9 +1,10 @@
-//// Use Erlang file read streams from Gleam.
+//// Use Erlang file read streams in Gleam.
 
 import gleam/bit_array
 import gleam/list
 import gleam/result
 import file_streams/file_error.{type FileError}
+import file_streams/internal/file_open_mode.{type FileOpenMode}
 import file_streams/internal/raw_read_result.{type RawReadResult}
 
 /// A stream that binary data can be read from.
@@ -21,24 +22,22 @@ pub type ReadStreamError {
   OtherFileError(error: FileError)
 }
 
-type Mode {
-  Read
-  Binary
-  ReadAhead
-  Raw
-}
-
 /// Opens a new read stream that reads binary data from a file. Once the stream
-/// has been used it should be closed with `read_stream.close()`.
+/// is no longer needed it should be closed with `read_stream.close()`.
 ///
 pub fn open(filename: String) -> Result(ReadStream, FileError) {
-  file_open(filename, [Read, Binary, ReadAhead, Raw])
+  file_open(filename, [
+    file_open_mode.Binary,
+    file_open_mode.Raw,
+    file_open_mode.Read,
+    file_open_mode.ReadAhead,
+  ])
 }
 
 @external(erlang, "file", "open")
 fn file_open(
   filename: String,
-  modes: List(Mode),
+  modes: List(FileOpenMode),
 ) -> Result(ReadStream, FileError)
 
 /// Closes a read stream.
@@ -52,21 +51,39 @@ pub fn close(stream: ReadStream) -> Nil {
 @external(erlang, "file", "close")
 fn file_close(stream: ReadStream) -> Nil
 
-/// Reads bytes from a read stream.
+/// Reads bytes from a read stream. The returned number of bytes may be fewer
+/// than the number that was requested if the end of the stream was reached.
+/// 
+/// If the end of the stream is encountered before any bytes can be read then
+/// `EndOfStream` is returned.
 ///
 pub fn read_bytes(
   stream: ReadStream,
   byte_count: Int,
 ) -> Result(BitArray, ReadStreamError) {
   case file_read(stream, byte_count) {
-    raw_read_result.Ok(bytes) ->
+    raw_read_result.Ok(bytes) -> Ok(bytes)
+    raw_read_result.Eof -> Error(EndOfStream)
+    raw_read_result.Error(e) -> Error(OtherFileError(e))
+  }
+}
+
+/// Reads the requested number of bytes from a read stream. If the requested
+/// number of bytes can't be read prior to reaching the end of the stream then
+/// `EndOfStream` is returned.
+///
+pub fn read_bytes_exact(
+  stream: ReadStream,
+  byte_count: Int,
+) -> Result(BitArray, ReadStreamError) {
+  case read_bytes(stream, byte_count) {
+    Ok(bytes) ->
       case bit_array.byte_size(bytes) == byte_count {
         True -> Ok(bytes)
         False -> Error(EndOfStream)
       }
 
-    raw_read_result.Eof -> Error(EndOfStream)
-    raw_read_result.Error(e) -> Error(OtherFileError(e))
+    error -> error
   }
 }
 
@@ -76,7 +93,7 @@ fn file_read(stream: ReadStream, byte_count: Int) -> RawReadResult
 /// Reads an 8-bit signed integer from a read stream.
 ///
 pub fn read_int8(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 1))
+  use bits <- result.map(read_bytes_exact(stream, 1))
 
   let assert <<v:signed-size(8)>> = bits
   v
@@ -85,7 +102,7 @@ pub fn read_int8(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads an 8-bit unsigned integer from a read stream.
 ///
 pub fn read_uint8(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 1))
+  use bits <- result.map(read_bytes_exact(stream, 1))
 
   let assert <<v:unsigned-size(8)>> = bits
   v
@@ -94,7 +111,7 @@ pub fn read_uint8(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a little-endian 16-bit signed integer from a read stream.
 ///
 pub fn read_int16_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 2))
+  use bits <- result.map(read_bytes_exact(stream, 2))
 
   let assert <<v:little-signed-size(16)>> = bits
   v
@@ -103,7 +120,7 @@ pub fn read_int16_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a big-endian 16-bit signed integer from a read stream.
 ///
 pub fn read_int16_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 2))
+  use bits <- result.map(read_bytes_exact(stream, 2))
 
   let assert <<v:big-signed-size(16)>> = bits
   v
@@ -112,7 +129,7 @@ pub fn read_int16_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a little-endian 16-bit unsigned integer from a read stream.
 ///
 pub fn read_uint16_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 2))
+  use bits <- result.map(read_bytes_exact(stream, 2))
 
   let assert <<v:little-unsigned-size(16)>> = bits
   v
@@ -121,7 +138,7 @@ pub fn read_uint16_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a big-endian 16-bit unsigned integer from a read stream.
 ///
 pub fn read_uint16_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 2))
+  use bits <- result.map(read_bytes_exact(stream, 2))
 
   let assert <<v:big-unsigned-size(16)>> = bits
   v
@@ -130,7 +147,7 @@ pub fn read_uint16_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a little-endian 32-bit signed integer from a read stream.
 ///
 pub fn read_int32_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 4))
+  use bits <- result.map(read_bytes_exact(stream, 4))
 
   let assert <<v:little-signed-size(32)>> = bits
   v
@@ -139,7 +156,7 @@ pub fn read_int32_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a big-endian 32-bit signed integer from a read stream.
 ///
 pub fn read_int32_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 4))
+  use bits <- result.map(read_bytes_exact(stream, 4))
 
   let assert <<v:big-signed-size(32)>> = bits
   v
@@ -148,7 +165,7 @@ pub fn read_int32_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a little-endian 32-bit unsigned integer from a read stream.
 ///
 pub fn read_uint32_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 4))
+  use bits <- result.map(read_bytes_exact(stream, 4))
 
   let assert <<v:little-unsigned-size(32)>> = bits
   v
@@ -157,7 +174,7 @@ pub fn read_uint32_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a big-endian 32-bit unsigned integer from a read stream.
 ///
 pub fn read_uint32_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 4))
+  use bits <- result.map(read_bytes_exact(stream, 4))
 
   let assert <<v:big-unsigned-size(32)>> = bits
   v
@@ -166,7 +183,7 @@ pub fn read_uint32_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a little-endian 64-bit signed integer from a read stream.
 ///
 pub fn read_int64_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 8))
+  use bits <- result.map(read_bytes_exact(stream, 8))
 
   let assert <<v:little-signed-size(64)>> = bits
   v
@@ -175,7 +192,7 @@ pub fn read_int64_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a big-endian 64-bit signed integer from a read stream.
 ///
 pub fn read_int64_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 8))
+  use bits <- result.map(read_bytes_exact(stream, 8))
 
   let assert <<v:big-signed-size(64)>> = bits
   v
@@ -184,7 +201,7 @@ pub fn read_int64_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a little-endian 64-bit unsigned integer from a read stream.
 ///
 pub fn read_uint64_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 8))
+  use bits <- result.map(read_bytes_exact(stream, 8))
 
   let assert <<v:little-unsigned-size(64)>> = bits
   v
@@ -193,7 +210,7 @@ pub fn read_uint64_le(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a big-endian 64-bit unsigned integer from a read stream.
 ///
 pub fn read_uint64_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 8))
+  use bits <- result.map(read_bytes_exact(stream, 8))
 
   let assert <<v:big-unsigned-size(64)>> = bits
   v
@@ -202,7 +219,7 @@ pub fn read_uint64_be(stream: ReadStream) -> Result(Int, ReadStreamError) {
 /// Reads a little-endian 32-bit float from a read stream.
 ///
 pub fn read_float32_le(stream: ReadStream) -> Result(Float, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 4))
+  use bits <- result.map(read_bytes_exact(stream, 4))
 
   let assert <<v:little-float-size(32)>> = bits
   v
@@ -211,7 +228,7 @@ pub fn read_float32_le(stream: ReadStream) -> Result(Float, ReadStreamError) {
 /// Reads a big-endian 32-bit float from a read stream.
 ///
 pub fn read_float32_be(stream: ReadStream) -> Result(Float, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 4))
+  use bits <- result.map(read_bytes_exact(stream, 4))
 
   let assert <<v:big-float-size(32)>> = bits
   v
@@ -220,7 +237,7 @@ pub fn read_float32_be(stream: ReadStream) -> Result(Float, ReadStreamError) {
 /// Reads a little-endian 64-bit float from a read stream.
 ///
 pub fn read_float64_le(stream: ReadStream) -> Result(Float, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 8))
+  use bits <- result.map(read_bytes_exact(stream, 8))
 
   let assert <<v:little-float-size(64)>> = bits
   v
@@ -229,7 +246,7 @@ pub fn read_float64_le(stream: ReadStream) -> Result(Float, ReadStreamError) {
 /// Reads a big-endian 64-bit float from a read stream.
 ///
 pub fn read_float64_be(stream: ReadStream) -> Result(Float, ReadStreamError) {
-  use bits <- result.map(read_bytes(stream, 8))
+  use bits <- result.map(read_bytes_exact(stream, 8))
 
   let assert <<v:big-float-size(64)>> = bits
   v

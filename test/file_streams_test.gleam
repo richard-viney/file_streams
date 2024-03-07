@@ -24,8 +24,11 @@ pub fn file_streams_test() {
   read_stream.read_bytes(rs, 5)
   |> should.equal(Ok(<<"Hello":utf8>>))
 
-  read_stream.read_bytes(rs, 8)
-  |> should.equal(Ok(<<", world!":utf8>>))
+  read_stream.read_bytes(rs, 3)
+  |> should.equal(Ok(<<", w":utf8>>))
+
+  read_stream.read_bytes(rs, 100)
+  |> should.equal(Ok(<<"orld!":utf8>>))
 
   read_stream.read_bytes(rs, 1)
   |> should.equal(Error(read_stream.EndOfStream))

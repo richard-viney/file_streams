@@ -1,30 +1,29 @@
-//// Use Erlang file write streams from Gleam.
+//// Use Erlang file write streams in Gleam.
 
 import file_streams/file_error.{type FileError}
+import file_streams/internal/file_open_mode.{type FileOpenMode}
 import file_streams/internal/raw_write_result.{type RawWriteResult}
 
 /// A stream that binary data can be written to.
 ///
 pub type WriteStream
 
-type Mode {
-  Binary
-  Write
-  DelayedWrite
-  Raw
-}
-
 /// Creates a new write stream that writes binary data to a file. Once the
-/// stream has been used it should be closed with `close`.
+/// stream is no longer needed it should be closed with `close`.
 ///
 pub fn open(filename: String) -> Result(WriteStream, FileError) {
-  file_open(filename, [Write, Binary, DelayedWrite, Raw])
+  file_open(filename, [
+    file_open_mode.Binary,
+    file_open_mode.DelayedWrite,
+    file_open_mode.Raw,
+    file_open_mode.Write,
+  ])
 }
 
 @external(erlang, "file", "open")
 fn file_open(
   filename: String,
-  modes: List(Mode),
+  modes: List(FileOpenMode),
 ) -> Result(WriteStream, FileError)
 
 /// Closes a write stream.
