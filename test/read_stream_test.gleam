@@ -1,4 +1,5 @@
 import file_streams/read_stream
+import file_streams/read_stream_error
 import gleam/bit_array
 import gleeunit/should
 import simplifile
@@ -91,7 +92,7 @@ pub fn read_stream_test() {
   |> should.equal(Ok([1.0, 2.0]))
 
   read_stream.read_bytes_exact(rs, 9)
-  |> should.equal(Error(read_stream.EndOfStream))
+  |> should.equal(Error(read_stream_error.EndOfStream))
 
   read_stream.close(rs)
   |> should.equal(Nil)

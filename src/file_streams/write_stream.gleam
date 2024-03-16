@@ -73,3 +73,18 @@ pub fn write_bytes(
 
 @external(erlang, "file", "write")
 fn file_write(stream: WriteStream, bytes: BitArray) -> RawWriteResult
+
+/// Writes a UTF-8 string to a write stream.
+///
+pub fn write_string(
+  stream: WriteStream,
+  string: String,
+) -> Result(Nil, FileError) {
+  write_bytes(stream, <<string:utf8>>)
+}
+
+/// Writes a line to a write stream along with a trailing newline character.
+///
+pub fn write_line(stream: WriteStream, line: String) -> Result(Nil, FileError) {
+  write_bytes(stream, <<line:utf8, 0x0A>>)
+}

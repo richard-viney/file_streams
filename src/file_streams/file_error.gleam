@@ -1,3 +1,5 @@
+import file_streams/file_encoding.{type FileEncoding}
+
 /// The reasons why a file system operation could fail in Erlang. Most of these
 /// map to underlying POSIX errors.
 ///
@@ -146,4 +148,11 @@ pub type FileError {
 
   /// Cross-domain link.
   Exdev
+
+  /// Invalid Unicode data was encountered when reading text.
+  InvalidUnicode
+
+  /// Unicode data that can't be converted to/from the relevant encoding was
+  /// encountered when reading text.
+  NoTranslation(a: FileEncoding, b: FileEncoding)
 }

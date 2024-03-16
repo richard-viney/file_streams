@@ -1,4 +1,5 @@
 import file_streams/read_stream
+import file_streams/read_stream_error
 import file_streams/write_stream
 import gleeunit
 import gleeunit/should
@@ -13,7 +14,7 @@ pub fn file_streams_test() {
 
   let assert Ok(ws) = write_stream.open(tmp_file_name)
 
-  write_stream.write_bytes(ws, <<"Hello, world!":utf8>>)
+  write_stream.write_string(ws, "Hello, world!")
   |> should.equal(Ok(Nil))
 
   write_stream.close(ws)
@@ -31,7 +32,7 @@ pub fn file_streams_test() {
   |> should.equal(Ok(<<"orld!":utf8>>))
 
   read_stream.read_bytes(rs, 1)
-  |> should.equal(Error(read_stream.EndOfStream))
+  |> should.equal(Error(read_stream_error.EndOfStream))
 
   read_stream.close(rs)
   |> should.equal(Nil)

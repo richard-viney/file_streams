@@ -1,29 +1,19 @@
-//// Use Erlang file read streams in Gleam.
+//// Use Erlang binary file read streams in Gleam.
 
-import gleam/bit_array
-import gleam/list
-import gleam/result
 import file_streams/file_error.{type FileError}
 import file_streams/internal/file_open_mode.{type FileOpenMode}
 import file_streams/internal/raw_read_result.{type RawReadResult}
+import file_streams/read_stream_error.{type ReadStreamError}
+import gleam/bit_array
+import gleam/list
+import gleam/result
 
-/// A stream that binary data can be read from.
+/// A stream that data can be read from.
 ///
 pub type ReadStream
 
-/// Errors that can occur when using a read stream.
-///
-pub type ReadStreamError {
-  /// The end of the stream was reached before all of the requested data could
-  /// be read.
-  EndOfStream
-
-  /// A file error occurred while reading from the stream.
-  OtherFileError(error: FileError)
-}
-
-/// Opens a new read stream that reads binary data from a file. Once the stream
-/// is no longer needed it should be closed with `read_stream.close()`.
+/// Opens a new read stream that reads binary or text data from a file. Once the
+/// stream is no longer needed it should be closed with `close()`.
 ///
 pub fn open(filename: String) -> Result(ReadStream, FileError) {
   file_open(filename, [
@@ -63,8 +53,8 @@ pub fn read_bytes(
 ) -> Result(BitArray, ReadStreamError) {
   case file_read(stream, byte_count) {
     raw_read_result.Ok(bytes) -> Ok(bytes)
-    raw_read_result.Eof -> Error(EndOfStream)
-    raw_read_result.Error(e) -> Error(OtherFileError(e))
+    raw_read_result.Eof -> Error(read_stream_error.EndOfStream)
+    raw_read_result.Error(e) -> Error(read_stream_error.OtherFileError(e))
   }
 }
 
@@ -80,7 +70,7 @@ pub fn read_bytes_exact(
     Ok(bytes) ->
       case bit_array.byte_size(bytes) == byte_count {
         True -> Ok(bytes)
-        False -> Error(EndOfStream)
+        False -> Error(read_stream_error.EndOfStream)
       }
 
     error -> error
@@ -88,7 +78,7 @@ pub fn read_bytes_exact(
 }
 
 @external(erlang, "file", "read")
-fn file_read(stream: ReadStream, byte_count: Int) -> RawReadResult
+fn file_read(stream: ReadStream, byte_count: Int) -> RawReadResult(BitArray)
 
 /// Reads an 8-bit signed integer from a read stream.
 ///
