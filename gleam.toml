@@ -1,6 +1,6 @@
 name = "file_streams"
 version = "0.3.0"
-description = "Gleam library that provides access to native Erlang binary file streams."
+description = "Gleam library that provides access to Erlang file streams."
 licences = ["MIT"]
 repository = { type = "github", user = "richard-viney", repo = "file_streams" }
 links = [
