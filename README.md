@@ -40,7 +40,7 @@ let assert Ok("Hello, world!\n") = bit_array.to_string(bytes)
 let assert Ok([49, 50]) = read_stream.read_list(rs, read_stream.read_uint8, 2)
 let assert Error(read_stream_error.EndOfStream) = read_stream.read_bytes(rs, 1)
 
-read_stream.close(rs)
+let assert Ok(Nil) = read_stream.close(rs)
 
 // Read file as a text stream so UTF-8 characters and lines can be read
 let assert Ok(rts) = read_text_stream.open("test.txt")
@@ -50,7 +50,7 @@ let assert Ok(", world!\n") = read_text_stream.read_line(rts)
 let assert Ok("12") = read_text_stream.read_line(rts)
 let assert Error(read_stream_error.EndOfStream) = read_text_stream.read_line(rts)
 
-read_text_stream.close(rts)
+let assert Ok(Nil) = read_text_stream.close(rts)
 ```
 
 Further documentation can be found at <https://hexdocs.pm/file_streams/>.

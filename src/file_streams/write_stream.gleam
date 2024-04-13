@@ -2,7 +2,7 @@
 
 import file_streams/file_error.{type FileError}
 import file_streams/internal/file_open_mode.{type FileOpenMode}
-import file_streams/internal/raw_write_result.{type RawWriteResult}
+import file_streams/internal/raw_result.{type RawResult}
 
 /// A stream that binary data can be written to.
 ///
@@ -34,13 +34,13 @@ fn file_open(
 ///
 pub fn close(stream: WriteStream) -> Result(Nil, FileError) {
   case file_close(stream) {
-    raw_write_result.Ok -> Ok(Nil)
-    raw_write_result.Error(e) -> Error(e)
+    raw_result.Ok -> Ok(Nil)
+    raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "close")
-fn file_close(stream: WriteStream) -> RawWriteResult
+fn file_close(stream: WriteStream) -> RawResult
 
 /// Syncs a write stream which ensures that any write buffers kept by the
 /// operating system (not by the Erlang runtime system) are written to disk.
@@ -51,13 +51,13 @@ fn file_close(stream: WriteStream) -> RawWriteResult
 ///
 pub fn sync(stream: WriteStream) -> Result(Nil, FileError) {
   case file_sync(stream) {
-    raw_write_result.Ok -> Ok(Nil)
-    raw_write_result.Error(e) -> Error(e)
+    raw_result.Ok -> Ok(Nil)
+    raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "sync")
-fn file_sync(stream: WriteStream) -> RawWriteResult
+fn file_sync(stream: WriteStream) -> RawResult
 
 /// Writes bytes to a write stream.
 ///
@@ -66,13 +66,13 @@ pub fn write_bytes(
   bytes: BitArray,
 ) -> Result(Nil, FileError) {
   case file_write(stream, bytes) {
-    raw_write_result.Ok -> Ok(Nil)
-    raw_write_result.Error(e) -> Error(e)
+    raw_result.Ok -> Ok(Nil)
+    raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "write")
-fn file_write(stream: WriteStream, bytes: BitArray) -> RawWriteResult
+fn file_write(stream: WriteStream, bytes: BitArray) -> RawResult
 
 /// Writes a UTF-8 string to a write stream.
 ///

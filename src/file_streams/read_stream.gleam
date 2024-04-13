@@ -3,6 +3,7 @@
 import file_streams/file_error.{type FileError}
 import file_streams/internal/file_open_mode.{type FileOpenMode}
 import file_streams/internal/raw_read_result.{type RawReadResult}
+import file_streams/internal/raw_result.{type RawResult}
 import file_streams/read_stream_error.{type ReadStreamError}
 import gleam/bit_array
 import gleam/list
@@ -32,14 +33,15 @@ fn file_open(
 
 /// Closes a read stream.
 ///
-pub fn close(stream: ReadStream) -> Nil {
-  file_close(stream)
-
-  Nil
+pub fn close(stream: ReadStream) -> Result(Nil, ReadStreamError) {
+  case file_close(stream) {
+    raw_result.Ok -> Ok(Nil)
+    raw_result.Error(e) -> Error(read_stream_error.OtherFileError(e))
+  }
 }
 
 @external(erlang, "file", "close")
-fn file_close(stream: ReadStream) -> Nil
+fn file_close(stream: ReadStream) -> RawResult
 
 /// Reads bytes from a read stream. The returned number of bytes may be fewer
 /// than the number that was requested if the end of the stream was reached.

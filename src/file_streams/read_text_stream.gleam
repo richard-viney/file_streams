@@ -4,6 +4,7 @@ import file_streams/file_encoding
 import file_streams/file_error.{type FileError}
 import file_streams/internal/file_open_mode.{type FileOpenMode}
 import file_streams/internal/raw_read_result.{type RawReadResult}
+import file_streams/internal/raw_result.{type RawResult}
 import file_streams/read_stream_error.{type ReadStreamError}
 import gleam/bit_array
 import gleam/result
@@ -32,14 +33,15 @@ fn file_open(
 
 /// Closes a text stream.
 ///
-pub fn close(stream: ReadTextStream) -> Nil {
-  file_close(stream)
-
-  Nil
+pub fn close(stream: ReadTextStream) -> Result(Nil, ReadStreamError) {
+  case file_close(stream) {
+    raw_result.Ok -> Ok(Nil)
+    raw_result.Error(e) -> Error(read_stream_error.OtherFileError(e))
+  }
 }
 
 @external(erlang, "file", "close")
-fn file_close(stream: ReadTextStream) -> Nil
+fn file_close(stream: ReadTextStream) -> RawResult
 
 /// Reads the next line of UTF-8 text from a stream. The returned string value
 /// will include the newline `\n` character. If the stream contains a Windows

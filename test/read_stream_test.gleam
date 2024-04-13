@@ -95,7 +95,7 @@ pub fn read_stream_test() {
   |> should.equal(Error(read_stream_error.EndOfStream))
 
   read_stream.close(rs)
-  |> should.equal(Nil)
+  |> should.equal(Ok(Nil))
 
-  simplifile.delete(tmp_file_name)
+  let assert Ok(Nil) = simplifile.delete(tmp_file_name)
 }

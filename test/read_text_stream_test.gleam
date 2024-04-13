@@ -33,7 +33,10 @@ pub fn read_text_stream_test() {
   read_text_stream.read_line(rs)
   |> should.equal(Error(read_stream_error.EndOfStream))
 
-  simplifile.delete(tmp_file_name)
+  read_text_stream.close(rs)
+  |> should.equal(Ok(Nil))
+
+  let assert Ok(Nil) = simplifile.delete(tmp_file_name)
 }
 
 pub fn read_invalid_file_test() {
@@ -52,5 +55,5 @@ pub fn read_invalid_file_test() {
     ),
   )
 
-  simplifile.delete(tmp_file_name)
+  let assert Ok(Nil) = simplifile.delete(tmp_file_name)
 }
