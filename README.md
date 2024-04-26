@@ -17,12 +17,13 @@ Add this library to your project:
 gleam add file_streams
 ```
 
-The following code writes data to a file using a write stream and then reads
-it back in using a binary file stream then again with a text file stream.
+The following code writes data to a file using a write stream, reads it back in
+using a binary file stream, then reads it again with a text file stream.
 
 ```gleam
 import file_streams/read_stream
 import file_streams/read_stream_error
+import file_streams/read_text_stream
 import file_streams/write_stream
 import gleam/bit_array
 
