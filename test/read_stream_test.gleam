@@ -1,6 +1,7 @@
 import file_streams/read_stream
 import file_streams/read_stream_error
 import gleam/bit_array
+import gleam/string
 import gleeunit/should
 import simplifile
 
@@ -35,8 +36,9 @@ pub fn read_stream_test() {
         // 64-bit floats
         <<
           1.0:little-float-size(64), 2.0:little-float-size(64),
-          3.0:little-float-size(64),
+          3.0:little-float-size(64), 4.0:little-float-size(64),
         >>,
+        bit_array.from_string(string.repeat("abc123", 10_000)),
       ]),
     )
 
@@ -88,10 +90,19 @@ pub fn read_stream_test() {
   read_stream.read_float64_be(rs)
   |> should.equal(Ok(2.5))
 
-  read_stream.read_list(rs, read_stream.read_float64_le, 2)
-  |> should.equal(Ok([1.0, 2.0]))
+  read_stream.read_list(rs, read_stream.read_float64_le, 4)
+  |> should.equal(Ok([1.0, 2.0, 3.0, 4.0]))
 
-  read_stream.read_bytes_exact(rs, 9)
+  case read_stream.read_to_eof(rs) {
+    Ok(rest) -> {
+      bit_array.to_string(rest)
+      |> should.equal(Ok(string.repeat("abc123", 10_000)))
+      Nil
+    }
+    Error(_) -> should.fail()
+  }
+
+  read_stream.read_bytes_exact(rs, 1)
   |> should.equal(Error(read_stream_error.EndOfStream))
 
   read_stream.close(rs)

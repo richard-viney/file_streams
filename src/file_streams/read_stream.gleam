@@ -283,3 +283,20 @@ fn do_read_list(
       }
   }
 }
+
+const block_size = 1024
+
+pub fn read_to_eof(stream: ReadStream) -> Result(BitArray, ReadStreamError) {
+  case file_read(stream, block_size) {
+    raw_read_result.Ok(bytes) -> {
+      case read_to_eof(stream) {
+        Ok(data) -> Ok(bit_array.append(bytes, data))
+        Error(read_stream_error.EndOfStream) -> Ok(bytes)
+        Error(read_stream_error.OtherFileError(e)) ->
+          Error(read_stream_error.OtherFileError(e))
+      }
+    }
+    raw_read_result.Eof -> Error(read_stream_error.EndOfStream)
+    raw_read_result.Error(e) -> Error(read_stream_error.OtherFileError(e))
+  }
+}
