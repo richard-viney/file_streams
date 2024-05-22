@@ -79,6 +79,34 @@ pub fn read_bytes_exact(
   }
 }
 
+/// Reads all remaining bytes from a read stream.
+/// 
+/// If no more data is available in the read stream then this function will
+/// return an empty bit array. It never returns an `EndOfStream` error.
+///
+pub fn read_remaining_bytes(
+  stream: ReadStream,
+) -> Result(BitArray, ReadStreamError) {
+  do_read_remaining_bytes(stream, [])
+}
+
+fn do_read_remaining_bytes(
+  stream: ReadStream,
+  acc: List(BitArray),
+) -> Result(BitArray, ReadStreamError) {
+  case read_bytes(stream, 64 * 1024) {
+    Ok(bytes) -> do_read_remaining_bytes(stream, [bytes, ..acc])
+
+    Error(read_stream_error.EndOfStream) ->
+      acc
+      |> list.reverse
+      |> bit_array.concat
+      |> Ok
+
+    Error(e) -> Error(e)
+  }
+}
+
 @external(erlang, "file", "read")
 fn file_read(stream: ReadStream, byte_count: Int) -> RawReadResult(BitArray)
 

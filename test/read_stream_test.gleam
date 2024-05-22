@@ -1,12 +1,13 @@
 import file_streams/read_stream
 import file_streams/read_stream_error
 import gleam/bit_array
+import gleam/string
 import gleeunit/should
 import simplifile
 
-pub fn read_stream_test() {
-  let tmp_file_name = "read_stream_test"
+const tmp_file_name = "read_stream.test"
 
+pub fn read_stream_test() {
   let assert Ok(Nil) =
     simplifile.write_bits(
       tmp_file_name,
@@ -98,4 +99,18 @@ pub fn read_stream_test() {
   |> should.equal(Ok(Nil))
 
   let assert Ok(Nil) = simplifile.delete(tmp_file_name)
+}
+
+pub fn read_remaining_bytes_test() {
+  let assert Ok(_) =
+    simplifile.write(tmp_file_name, string.repeat("Test", 50_000))
+
+  let assert Ok(rs) = read_stream.open(tmp_file_name)
+  let assert Ok(_) = read_stream.read_bytes_exact(rs, 100_000)
+
+  let assert Ok(remaining_bytes) = read_stream.read_remaining_bytes(rs)
+
+  remaining_bytes
+  |> bit_array.to_string
+  |> should.equal(Ok(string.repeat("Test", 25_000)))
 }

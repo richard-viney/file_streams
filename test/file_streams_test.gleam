@@ -10,7 +10,7 @@ pub fn main() {
 }
 
 pub fn file_streams_test() {
-  let tmp_file_name = "file_streams_test"
+  let tmp_file_name = "file_streams.test"
 
   let assert Ok(ws) = write_stream.open(tmp_file_name)
 

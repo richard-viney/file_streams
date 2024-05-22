@@ -5,7 +5,7 @@ import file_streams/read_text_stream
 import gleeunit/should
 import simplifile
 
-const tmp_file_name = "read_text_stream_test"
+const tmp_file_name = "read_text_stream.test"
 
 pub fn read_text_stream_test() {
   let assert Ok(Nil) =
