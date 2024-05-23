@@ -17,7 +17,7 @@ pub type ReadStream
 /// stream is no longer needed it should be closed with `close()`.
 ///
 pub fn open(filename: String) -> Result(ReadStream, FileError) {
-  file_open(filename, [
+  erl_file_open(filename, [
     file_open_mode.Binary,
     file_open_mode.Raw,
     file_open_mode.Read,
@@ -26,7 +26,7 @@ pub fn open(filename: String) -> Result(ReadStream, FileError) {
 }
 
 @external(erlang, "file", "open")
-fn file_open(
+fn erl_file_open(
   filename: String,
   modes: List(FileOpenMode),
 ) -> Result(ReadStream, FileError)
@@ -34,14 +34,61 @@ fn file_open(
 /// Closes a read stream.
 ///
 pub fn close(stream: ReadStream) -> Result(Nil, ReadStreamError) {
-  case file_close(stream) {
+  case erl_file_close(stream) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(read_stream_error.OtherFileError(e))
   }
 }
 
 @external(erlang, "file", "close")
-fn file_close(stream: ReadStream) -> RawResult
+fn erl_file_close(stream: ReadStream) -> RawResult
+
+/// A read stream location defined relative to the beginning of the file,
+/// the end of the file, or the current position in the read stream.
+///
+pub type FileStreamLocation {
+  /// A location relative to the beginning of the file, i.e. an absolute offset
+  /// in the read stream. The offset should not be negative.
+  BeginningOfFile(offset: Int)
+
+  /// A location relative to the current position in the file. The offset can be
+  /// either positive or negative.
+  CurrentLocation(offset: Int)
+
+  /// A location relative to the end of the file. The offset should not be
+  /// positive.
+  EndOfFile(offset: Int)
+}
+
+/// Sets the position of a read stream to the given location, where the location
+/// can be relative to the beginning of the file, the end of the file, or the
+/// current position in the file, On success, returns the current position in
+/// the read stream as an absolute offset in bytes.
+///
+pub fn position(
+  stream: ReadStream,
+  location: FileStreamLocation,
+) -> Result(Int, FileError) {
+  let location = case location {
+    BeginningOfFile(offset) -> Bof(offset)
+    CurrentLocation(offset) -> Cur(offset)
+    EndOfFile(offset) -> Eof(offset)
+  }
+
+  erl_file_position(stream, location)
+}
+
+type ErlLocation {
+  Bof(offset: Int)
+  Cur(offset: Int)
+  Eof(offset: Int)
+}
+
+@external(erlang, "file", "position")
+fn erl_file_position(
+  stream: ReadStream,
+  location: ErlLocation,
+) -> Result(Int, FileError)
 
 /// Reads bytes from a read stream. The returned number of bytes may be fewer
 /// than the number that was requested if the end of the stream was reached.
@@ -53,7 +100,7 @@ pub fn read_bytes(
   stream: ReadStream,
   byte_count: Int,
 ) -> Result(BitArray, ReadStreamError) {
-  case file_read(stream, byte_count) {
+  case erl_file_read(stream, byte_count) {
     raw_read_result.Ok(bytes) -> Ok(bytes)
     raw_read_result.Eof -> Error(read_stream_error.EndOfStream)
     raw_read_result.Error(e) -> Error(read_stream_error.OtherFileError(e))
@@ -108,7 +155,7 @@ fn do_read_remaining_bytes(
 }
 
 @external(erlang, "file", "read")
-fn file_read(stream: ReadStream, byte_count: Int) -> RawReadResult(BitArray)
+fn erl_file_read(stream: ReadStream, byte_count: Int) -> RawReadResult(BitArray)
 
 /// Reads an 8-bit signed integer from a read stream.
 ///

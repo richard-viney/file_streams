@@ -1,3 +1,4 @@
+import file_streams/file_error
 import file_streams/read_stream
 import file_streams/read_stream_error
 import gleam/bit_array
@@ -113,4 +114,34 @@ pub fn read_remaining_bytes_test() {
   remaining_bytes
   |> bit_array.to_string
   |> should.equal(Ok(string.repeat("Test", 25_000)))
+}
+
+pub fn position_test() {
+  let assert Ok(_) = simplifile.write(tmp_file_name, "Test1234")
+
+  let assert Ok(rs) = read_stream.open(tmp_file_name)
+
+  let assert Ok(<<"Te":utf8>>) = read_stream.read_bytes_exact(rs, 2)
+
+  let assert Ok(0) = read_stream.position(rs, read_stream.CurrentLocation(-2))
+  let assert Ok(<<"Te":utf8>>) = read_stream.read_bytes_exact(rs, 2)
+
+  let assert Ok(4) = read_stream.position(rs, read_stream.BeginningOfFile(4))
+  let assert Ok(<<"1234":utf8>>) = read_stream.read_bytes_exact(rs, 4)
+
+  let assert Ok(6) = read_stream.position(rs, read_stream.EndOfFile(-2))
+  let assert Ok(<<"34":utf8>>) = read_stream.read_bytes_exact(rs, 2)
+
+  let assert Ok(18) = read_stream.position(rs, read_stream.EndOfFile(10))
+  let assert Error(read_stream_error.EndOfStream) =
+    read_stream.read_bytes_exact(rs, 1)
+
+  let assert Error(file_error.Einval) =
+    read_stream.position(rs, read_stream.BeginningOfFile(-100))
+
+  let assert Error(file_error.Einval) =
+    read_stream.position(rs, read_stream.CurrentLocation(-100))
+
+  let assert Ok(6) = read_stream.position(rs, read_stream.BeginningOfFile(6))
+  let assert Ok(<<"34":utf8>>) = read_stream.read_bytes_exact(rs, 2)
 }

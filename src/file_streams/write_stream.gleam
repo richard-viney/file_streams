@@ -12,7 +12,7 @@ pub type WriteStream
 /// stream is no longer needed it should be closed with `close`.
 ///
 pub fn open(filename: String) -> Result(WriteStream, FileError) {
-  file_open(filename, [
+  erl_file_open(filename, [
     file_open_mode.Binary,
     file_open_mode.DelayedWrite,
     file_open_mode.Raw,
@@ -21,7 +21,7 @@ pub fn open(filename: String) -> Result(WriteStream, FileError) {
 }
 
 @external(erlang, "file", "open")
-fn file_open(
+fn erl_file_open(
   filename: String,
   modes: List(FileOpenMode),
 ) -> Result(WriteStream, FileError)
@@ -33,14 +33,14 @@ fn file_open(
 /// recently written data to disk.
 ///
 pub fn close(stream: WriteStream) -> Result(Nil, FileError) {
-  case file_close(stream) {
+  case erl_file_close(stream) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "close")
-fn file_close(stream: WriteStream) -> RawResult
+fn erl_file_close(stream: WriteStream) -> RawResult
 
 /// Syncs a write stream which ensures that any write buffers kept by the
 /// operating system (not by the Erlang runtime system) are written to disk.
@@ -50,14 +50,14 @@ fn file_close(stream: WriteStream) -> RawResult
 /// written data to disk.
 ///
 pub fn sync(stream: WriteStream) -> Result(Nil, FileError) {
-  case file_sync(stream) {
+  case erl_file_sync(stream) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "sync")
-fn file_sync(stream: WriteStream) -> RawResult
+fn erl_file_sync(stream: WriteStream) -> RawResult
 
 /// Writes bytes to a write stream.
 ///
@@ -65,14 +65,14 @@ pub fn write_bytes(
   stream: WriteStream,
   bytes: BitArray,
 ) -> Result(Nil, FileError) {
-  case file_write(stream, bytes) {
+  case erl_file_write(stream, bytes) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "write")
-fn file_write(stream: WriteStream, bytes: BitArray) -> RawResult
+fn erl_file_write(stream: WriteStream, bytes: BitArray) -> RawResult
 
 /// Writes a UTF-8 string to a write stream.
 ///

@@ -17,7 +17,7 @@ pub type ReadTextStream
 /// is no longer needed it should be closed with `close()`.
 ///
 pub fn open(filename: String) -> Result(ReadTextStream, FileError) {
-  file_open(filename, [
+  erl_file_open(filename, [
     file_open_mode.Binary,
     file_open_mode.Read,
     file_open_mode.ReadAhead,
@@ -26,7 +26,7 @@ pub fn open(filename: String) -> Result(ReadTextStream, FileError) {
 }
 
 @external(erlang, "file", "open")
-fn file_open(
+fn erl_file_open(
   filename: String,
   modes: List(FileOpenMode),
 ) -> Result(ReadTextStream, FileError)
@@ -34,14 +34,14 @@ fn file_open(
 /// Closes a text stream.
 ///
 pub fn close(stream: ReadTextStream) -> Result(Nil, ReadStreamError) {
-  case file_close(stream) {
+  case erl_file_close(stream) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(read_stream_error.OtherFileError(e))
   }
 }
 
 @external(erlang, "file", "close")
-fn file_close(stream: ReadTextStream) -> RawResult
+fn erl_file_close(stream: ReadTextStream) -> RawResult
 
 /// Reads the next line of UTF-8 text from a stream. The returned string value
 /// will include the newline `\n` character. If the stream contains a Windows
