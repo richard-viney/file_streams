@@ -1,9 +1,9 @@
-import file_streams/file_encoding.{type FileEncoding}
+import file_streams/text_encoding.{type TextEncoding}
 
-/// The reasons why a file system operation could fail in Erlang. Most of these
-/// map to underlying POSIX errors.
+/// The reasons why a file stream operation can fail. Most of these map to
+/// underlying POSIX errors.
 ///
-pub type FileError {
+pub type FileStreamError {
   /// Permission denied.
   Eacces
 
@@ -23,7 +23,7 @@ pub type FileError {
   Edeadlk
 
   /// On most architectures, same as `Edeadlk`. On some architectures, it
-  /// 
+  ///
   /// means "File locking deadlock error."
   Edeadlock
 
@@ -40,7 +40,7 @@ pub type FileError {
   Efbig
 
   /// Inappropriate file type or format. Usually caused by trying to set the
-  /// 
+  ///
   /// "sticky bit" on a regular file (not a directory).
   Eftype
 
@@ -149,10 +149,14 @@ pub type FileError {
   /// Cross-domain link.
   Exdev
 
-  /// Invalid Unicode data was encountered when reading text.
-  InvalidUnicode
+  /// The end of the file stream was reached before the requested data could
+  /// be read.
+  Eof
 
-  /// Unicode data that can't be converted to/from the relevant encoding was
-  /// encountered when reading text.
-  NoTranslation(a: FileEncoding, b: FileEncoding)
+  /// Invalid data was encountered when reading text.
+  InvalidTextData
+
+  /// Text data was encountered that can't be converted from/to the relevant
+  /// text encoding.
+  NoTranslation(from: TextEncoding, to: TextEncoding)
 }

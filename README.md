@@ -17,41 +17,36 @@ Add this library to your project:
 gleam add file_streams
 ```
 
-The following code writes data to a file using a write stream, reads it back in
-using a binary file stream, then reads it again with a text file stream.
+The following code writes data to a file using a binary file stream, reads it
+back in using a binary file stream, then reads it again with a text file stream.
 
 ```gleam
-import file_streams/read_stream
-import file_streams/read_stream_error
-import file_streams/read_text_stream
-import file_streams/write_stream
+import file_streams/file_stream
+import file_streams/file_stream_error
 import gleam/bit_array
 
-// Write file
-let assert Ok(ws) = write_stream.open("test.txt")
-let assert Ok(Nil) = write_stream.write_string(ws, "Hello, world!\n")
-let assert Ok(Nil) = write_stream.write_bytes(ws, <<"12":utf8>>)
-let assert Ok(Nil) = write_stream.close(ws)
+// Write file as a binary stream
+let assert Ok(stream) = file_stream.open_write("test.txt")
+let assert Ok(Nil) = file_stream.write_bytes(stream, <<"Hello, world!\n":utf8>>)
+let assert Ok(Nil) = file_stream.write_bytes(stream, <<"12":utf8>>)
+let assert Ok(Nil) = file_stream.close(stream)
 
 // Read file as a binary stream
-let assert Ok(rs) = read_stream.open("test.txt")
-
-let assert Ok(bytes) = read_stream.read_bytes(rs, 14)
+let assert Ok(stream) = file_stream.open_read("test.txt")
+let assert Ok(bytes) = file_stream.read_bytes(stream, 14)
 let assert Ok("Hello, world!\n") = bit_array.to_string(bytes)
-let assert Ok([49, 50]) = read_stream.read_list(rs, read_stream.read_uint8, 2)
-let assert Error(read_stream_error.EndOfStream) = read_stream.read_bytes(rs, 1)
+let assert Ok([49, 50]) =
+  file_stream.read_list(stream, file_stream.read_uint8, 2)
+let assert Error(file_stream_error.Eof) = file_stream.read_bytes(stream, 1)
+let assert Ok(Nil) = file_stream.close(stream)
 
-let assert Ok(Nil) = read_stream.close(rs)
-
-// Read file as a text stream so UTF-8 characters and lines can be read
-let assert Ok(rts) = read_text_stream.open("test.txt")
-
-let assert Ok("Hello") = read_text_stream.read_chars(rts, 5)
-let assert Ok(", world!\n") = read_text_stream.read_line(rts)
-let assert Ok("12") = read_text_stream.read_line(rts)
-let assert Error(read_stream_error.EndOfStream) = read_text_stream.read_line(rts)
-
-let assert Ok(Nil) = read_text_stream.close(rts)
+// Read file as a UTF-8 text stream
+let assert Ok(stream) = file_stream.open_read_text("test.txt")
+let assert Ok("Hello") = file_stream.read_chars(stream, 5)
+let assert Ok(", world!\n") = file_stream.read_line(stream)
+let assert Ok("12") = file_stream.read_line(stream)
+let assert Error(file_stream_error.Eof) = file_stream.read_line(stream)
+let assert Ok(Nil) = file_stream.close(stream)
 ```
 
 Further documentation can be found at <https://hexdocs.pm/file_streams/>.

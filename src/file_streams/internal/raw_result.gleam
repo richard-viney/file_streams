@@ -1,6 +1,6 @@
-import file_streams/file_error.{type FileError}
+import file_streams/file_stream_error.{type FileStreamError}
 
 pub type RawResult {
   Ok
-  Error(error: FileError)
+  Error(error: FileStreamError)
 }
