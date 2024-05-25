@@ -14,39 +14,7 @@ pub fn main() {
   gleeunit.main()
 }
 
-/// Writes a small file and then reads it back. This is a basic test of 
-///
-pub fn file_streams_test() {
-  let assert Ok(stream) = file_stream.open_write(tmp_file_name)
-
-  file_stream.write_bytes(stream, <<"Hello, world!":utf8>>)
-  |> should.equal(Ok(Nil))
-
-  file_stream.close(stream)
-  |> should.equal(Ok(Nil))
-
-  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
-
-  file_stream.read_bytes(stream, 5)
-  |> should.equal(Ok(<<"Hello":utf8>>))
-
-  file_stream.read_bytes(stream, 3)
-  |> should.equal(Ok(<<", w":utf8>>))
-
-  file_stream.read_bytes(stream, 100)
-  |> should.equal(Ok(<<"orld!":utf8>>))
-
-  file_stream.read_bytes(stream, 1)
-  |> should.equal(Error(file_stream_error.Eof))
-
-  file_stream.close(stream)
-  |> should.equal(Ok(Nil))
-
-  simplifile.delete(tmp_file_name)
-  |> should.equal(Ok(Nil))
-}
-
-pub fn file_stream_test() {
+pub fn read_ints_and_floats_test() {
   simplifile.write_bits(
     tmp_file_name,
     bit_array.concat([
@@ -420,6 +388,43 @@ pub fn write_utf16le_test() {
 
   simplifile.read_bits(tmp_file_name)
   |> should.equal(Ok(<<0xE5, 0x65, 0x2C, 0x67, 0x9E, 0x8A>>))
+
+  simplifile.delete(tmp_file_name)
+  |> should.equal(Ok(Nil))
+}
+
+pub fn read_utf32be_test() {
+  simplifile.write_bits(tmp_file_name, <<0x00, 0x01, 0x03, 0x48>>)
+  |> should.equal(Ok(Nil))
+
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Read,
+      file_open_mode.Encoding(text_encoding.Utf32(text_encoding.Big)),
+    ])
+
+  file_stream.read_line(stream)
+  |> should.equal(Ok("𐍈"))
+
+  simplifile.delete(tmp_file_name)
+  |> should.equal(Ok(Nil))
+}
+
+pub fn write_utf32be_test() {
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Write,
+      file_open_mode.Encoding(text_encoding.Utf32(text_encoding.Big)),
+    ])
+
+  file_stream.write_chars(stream, "𐍈")
+  |> should.equal(Ok(Nil))
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
+  simplifile.read_bits(tmp_file_name)
+  |> should.equal(Ok(<<0x00, 0x01, 0x03, 0x48>>))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
