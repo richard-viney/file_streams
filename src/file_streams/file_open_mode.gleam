@@ -64,6 +64,19 @@ pub type FileOpenMode {
   /// systems are safe).
   Exclusive
 
+  /// Allows faster access to a file, as no Erlang process is needed to handle
+  /// the file. However, a file opened in this way has the following
+  /// limitations:
+  /// 
+  /// - Only the Erlang process that opened the file can use it.
+  /// - Text-based reading and writing can't be performed, as it depends on the
+  ///   `io` module which cannot be used in raw mode, as it can only talk to an
+  ///   Erlang process.
+  /// - A remote Erlang file server cannot be used. The computer on which the
+  ///   Erlang node is running must have access to the file system (directly or
+  ///   through NFS).
+  Raw
+
   /// The file, which must exist, is opened for reading.
   Read
 

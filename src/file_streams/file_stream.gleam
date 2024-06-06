@@ -52,6 +52,14 @@ pub fn open(
     False -> mode
   }
 
+  // Raw mode is not compatible with text mode. This is because text mode
+  // uses functions in the `io` module that don't work in raw mode.
+  // See https://www.erlang.org/doc/apps/kernel/file.html#open/2.
+  use <- bool.guard(
+    !is_binary && list.contains(mode, file_open_mode.Raw),
+    Error(file_stream_error.Enotsup),
+  )
+
   use io_device <- result.try(erl_file_open(filename, mode))
 
   Ok(FileStream(io_device, is_binary))
@@ -70,6 +78,7 @@ pub fn open_read(filename: String) -> Result(FileStream, FileStreamError) {
     file_open_mode.Read,
     file_open_mode.ReadAhead(64 * 1024),
     file_open_mode.Binary,
+    file_open_mode.Raw,
   ])
 }
 
@@ -89,6 +98,7 @@ pub fn open_write(filename: String) -> Result(FileStream, FileStreamError) {
     file_open_mode.Write,
     file_open_mode.DelayedWrite(size: 64 * 1024, delay: 2000),
     file_open_mode.Binary,
+    file_open_mode.Raw,
   ])
 }
 
