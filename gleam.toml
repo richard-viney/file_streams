@@ -1,5 +1,5 @@
 name = "file_streams"
-version = "0.5.0"
+version = "0.5.1"
 description = "Gleam library that provides access to Erlang file streams."
 licences = ["MIT"]
 repository = { type = "github", user = "richard-viney", repo = "file_streams" }
