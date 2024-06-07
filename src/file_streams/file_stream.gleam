@@ -4,65 +4,64 @@ import file_streams/file_open_mode.{type FileOpenMode}
 import file_streams/file_stream_error.{type FileStreamError}
 import file_streams/internal/raw_read_result.{type RawReadResult}
 import file_streams/internal/raw_result.{type RawResult}
-import file_streams/text_encoding
+import file_streams/text_encoding.{type TextEncoding, Latin1}
 import gleam/bit_array
 import gleam/bool
 import gleam/list
 import gleam/result
-import gleam/string
 
 type IoDevice
 
 /// A file stream that data can be read from and/or written to depending on the
-/// mode specified when it was opened.
+/// modes specified when it was opened.
 ///
 pub opaque type FileStream {
-  FileStream(io_device: IoDevice, is_binary: Bool)
+  FileStream(io_device: IoDevice, is_raw: Bool, text_encoding: TextEncoding)
 }
 
 /// Opens a new file stream that can read and/or write data from the specified
 /// file. See [`FileOpenMode`](./file_open_mode.html#FileOpenMode) for all of
 /// the available file modes.
 ///
-/// For simple cases of opening a file stream use one of the
-/// [`open_read()`](#open_read), [`open_read_text()`](#open_read_text),
-/// [`open_write()`](#open_write), or [`open_write_text()`](#open_write_text)
-/// helper functions.
+/// For simple cases of opening a file stream prefer one of the
+/// [`open_read()`](#open_read) or [`open_write()`](#open_write) helper
+/// functions so you don't have to manually specify the file mode.
 /// 
 /// Once the file stream is no longer needed it should be closed with
 /// [`close()`](#close).
 ///
 pub fn open(
   filename: String,
-  mode: List(FileOpenMode),
+  modes: List(FileOpenMode),
 ) -> Result(FileStream, FileStreamError) {
-  let is_binary = list.contains(mode, file_open_mode.Binary)
+  let is_raw = list.contains(modes, file_open_mode.Raw)
 
-  let has_encoding =
-    list.any(mode, fn(m) {
+  // Find the text encoding if one was specified
+  let encoding =
+    list.find_map(modes, fn(m) {
       case m {
-        file_open_mode.Encoding(_) -> True
-        _ -> False
+        file_open_mode.Encoding(e) -> Ok(e)
+        _ -> Error(Nil)
       }
     })
 
-  // Set UTF-8 as the default encoding for text streams
-  let mode = case !is_binary && !has_encoding {
-    True -> [file_open_mode.Encoding(text_encoding.Unicode), ..mode]
-    False -> mode
-  }
-
-  // Raw mode is not compatible with text mode. This is because text mode
-  // uses functions in the `io` module that don't work in raw mode.
-  // See https://www.erlang.org/doc/apps/kernel/file.html#open/2.
+  // Raw mode is not allowed when specifying a text encoding, as per the Erlang
+  // docs
   use <- bool.guard(
-    !is_binary && list.contains(mode, file_open_mode.Raw),
+    is_raw && encoding != Error(Nil),
     Error(file_stream_error.Enotsup),
   )
 
+  // Binary mode is forced on so the Erlang APIs return binaries rather than
+  // lists
+  let mode = case list.contains(modes, file_open_mode.Binary) {
+    True -> modes
+    False -> [file_open_mode.Binary, ..modes]
+  }
+
   use io_device <- result.try(erl_file_open(filename, mode))
 
-  Ok(FileStream(io_device, is_binary))
+  Ok(FileStream(io_device, is_raw, result.unwrap(encoding, Latin1)))
 }
 
 @external(erlang, "file", "open")
@@ -71,47 +70,83 @@ fn erl_file_open(
   mode: List(FileOpenMode),
 ) -> Result(IoDevice, FileStreamError)
 
-/// Opens a new file stream for reading binary data from the specified file.
+/// Opens a new file stream for reading from the specified file. Allows for
+/// efficient reading of binary data and lines of UTF-8 text.
+/// 
+/// The modes used are:
+/// 
+/// - `Read`
+/// - `ReadAhead(size: 64 * 1024)`
+/// - `Raw`
 ///
 pub fn open_read(filename: String) -> Result(FileStream, FileStreamError) {
   open(filename, [
     file_open_mode.Read,
     file_open_mode.ReadAhead(64 * 1024),
-    file_open_mode.Binary,
     file_open_mode.Raw,
   ])
 }
 
-/// Opens a new file stream for reading UTF-8 text from a file.
+/// Opens a new file stream for reading encoded text from the specified file. If
+/// only reading of UTF-8 lines of text is needed then prefer `open_read()` as
+/// it is much faster due to using `Raw` mode.
+/// 
+/// The modes used are:
+/// 
+/// - `Read`
+/// - `ReadAhead(size: 64 * 1024)`
+/// - `Encoding(encoding)`
 ///
-pub fn open_read_text(filename: String) -> Result(FileStream, FileStreamError) {
+pub fn open_read_text(
+  filename: String,
+  encoding: TextEncoding,
+) -> Result(FileStream, FileStreamError) {
   open(filename, [
     file_open_mode.Read,
-    file_open_mode.ReadAhead(size: 64 * 1024),
+    file_open_mode.ReadAhead(64 * 1024),
+    file_open_mode.Encoding(encoding),
   ])
 }
 
-/// Opens a new file stream for writing binary data to the specified file.
+/// Opens a new file stream for writing to the specified file. Allows for
+/// efficient writing of binary data and UTF-8 text.
+/// 
+/// The modes used are:
+/// 
+/// - `Write`
+/// - `DelayedWrite(size: 64 * 1024, delay: 2000)`
+/// - `Raw`
 ///
 pub fn open_write(filename: String) -> Result(FileStream, FileStreamError) {
   open(filename, [
     file_open_mode.Write,
     file_open_mode.DelayedWrite(size: 64 * 1024, delay: 2000),
-    file_open_mode.Binary,
     file_open_mode.Raw,
   ])
 }
 
-/// Opens a new file stream for writing UTF-8 text to a file.
+/// Opens a new file stream for writing encoded text to the specified file. If
+/// only writing of UTF-8 text is needed then prefer `open_write()` as it is
+/// much faster due to using `Raw` mode.
+/// 
+/// The modes used are:
+/// 
+/// - `Read`
+/// - `ReadAhead(size: 64 * 1024)`
+/// - `Encoding(encoding)`
 ///
-pub fn open_write_text(filename: String) -> Result(FileStream, FileStreamError) {
+pub fn open_write_text(
+  filename: String,
+  encoding: TextEncoding,
+) -> Result(FileStream, FileStreamError) {
   open(filename, [
     file_open_mode.Write,
     file_open_mode.DelayedWrite(size: 64 * 1024, delay: 2000),
+    file_open_mode.Encoding(encoding),
   ])
 }
 
-/// Closes a file stream that was opened with [`open()`](#open).
+/// Closes an open file stream.
 ///
 pub fn close(stream: FileStream) -> Result(Nil, FileStreamError) {
   case erl_file_close(stream.io_device) {
@@ -124,8 +159,8 @@ pub fn close(stream: FileStream) -> Result(Nil, FileStreamError) {
 fn erl_file_close(io_device: IoDevice) -> RawResult
 
 /// A file stream location defined relative to the beginning of the file,
-/// the end of the file, or the current position in the file stream. This is
-/// used with the [`position()`](#position) function.
+/// the end of the file, or the current position in the file stream. This type
+/// is used with the [`position()`](#position) function.
 ///
 pub type FileStreamLocation {
   /// A location relative to the beginning of the file, i.e. an absolute offset
@@ -171,13 +206,20 @@ fn erl_file_position(
   location: ErlLocation,
 ) -> Result(Int, FileStreamError)
 
-/// Writes bytes to a binary file stream.
+/// Writes bytes to a file stream.
+///
+/// This function is supported when the file stream was opened in `Raw` mode or
+/// it uses the `Latin1` text encoding (which is the default). If this is not
+/// the case then [`write_chars()`](#write_chars) should be used instead.
 ///
 pub fn write_bytes(
   stream: FileStream,
   bytes: BitArray,
 ) -> Result(Nil, FileStreamError) {
-  use <- bool.guard(!stream.is_binary, Error(file_stream_error.Enotsup))
+  use <- bool.guard(
+    stream.text_encoding != Latin1,
+    Error(file_stream_error.Enotsup),
+  )
 
   case erl_file_write(stream.io_device, bytes) {
     raw_result.Ok -> Ok(Nil)
@@ -188,16 +230,19 @@ pub fn write_bytes(
 @external(erlang, "file", "write")
 fn erl_file_write(io_device: IoDevice, bytes: BitArray) -> RawResult
 
-/// Writes characters to a text file stream. This will convert the characters to
-/// the text encoding in use for the file stream.
+/// Writes characters to a file stream. This will convert the characters to the
+/// text encoding specified when the file stream was opened.
+///
+/// For file streams opened in `Raw` mode, this function always writes UTF-8.
 ///
 pub fn write_chars(
   stream: FileStream,
   chars: String,
 ) -> Result(Nil, FileStreamError) {
-  use <- bool.guard(stream.is_binary, Error(file_stream_error.Enotsup))
-
-  erl_io_put_chars(stream.io_device, chars)
+  case stream.is_raw {
+    True -> chars |> bit_array.from_string |> write_bytes(stream, _)
+    False -> erl_io_put_chars(stream.io_device, chars)
+  }
 }
 
 @external(erlang, "erl_file_streams", "io_put_chars")
@@ -224,18 +269,26 @@ pub fn sync(stream: FileStream) -> Result(Nil, FileStreamError) {
 @external(erlang, "file", "sync")
 fn erl_file_sync(io_device: IoDevice) -> RawResult
 
-/// Reads bytes from a binary file stream. The returned number of bytes may be
-/// fewer than the number that was requested if the end of the file stream was
+/// Reads bytes from a file stream. The returned number of bytes may be fewer
+/// than the number that was requested if the end of the file stream was
 /// reached.
 ///
 /// If the end of the file stream is encountered before any bytes can be read
 /// then `Error(Eof)` is returned.
 ///
+/// This function is supported when the file stream was opened in `Raw` mode or
+/// it uses the `Latin1` text encoding (which is the default). If this is not
+/// the case then [`read_chars()`](#read_chars) or [`read_line()`](#read_line)
+/// should be used instead.
+///
 pub fn read_bytes(
   stream: FileStream,
   byte_count: Int,
 ) -> Result(BitArray, FileStreamError) {
-  use <- bool.guard(!stream.is_binary, Error(file_stream_error.Enotsup))
+  use <- bool.guard(
+    stream.text_encoding != Latin1,
+    Error(file_stream_error.Enotsup),
+  )
 
   case erl_file_read(stream.io_device, byte_count) {
     raw_read_result.Ok(bytes) -> Ok(bytes)
@@ -250,9 +303,14 @@ fn erl_file_read(
   byte_count: Int,
 ) -> RawReadResult(BitArray)
 
-/// Reads the requested number of bytes from a binary file stream. If the
-/// requested number of bytes can't be read prior to reaching the end of the
-/// file stream then `Error(Eof)` is returned.
+/// Reads the requested number of bytes from a file stream. If the requested
+/// number of bytes can't be read prior to reaching the end of the file stream
+/// then `Error(Eof)` is returned.
+///
+/// This function is supported when the file stream was opened in `Raw` mode or
+/// it uses the `Latin1` text encoding (which is the default). If this is not
+/// the case then [`read_chars()`](#read_chars) or [`read_line()`](#read_line)
+/// should be used instead.
 ///
 pub fn read_bytes_exact(
   stream: FileStream,
@@ -269,10 +327,14 @@ pub fn read_bytes_exact(
   }
 }
 
-/// Reads all remaining bytes from a binary file stream.
+/// Reads all remaining bytes from a file stream. If no more data is available
+/// in the file stream then this function will return an empty bit array. It
+/// never returns `Error(Eof)`.
 ///
-/// If no more data is available in the file stream then this function will
-/// return an empty bit array. It never returns `Error(Eof)`.
+/// This function is supported when the file stream was opened in `Raw` mode or
+/// it uses the `Latin1` text encoding (which is the default). If this is not
+/// the case then [`read_chars()`](#read_chars) or [`read_line()`](#read_line)
+/// should be used instead.
 ///
 pub fn read_remaining_bytes(
   stream: FileStream,
@@ -297,54 +359,70 @@ fn do_read_remaining_bytes(
   }
 }
 
-/// Reads the next line of text from a text file stream. The returned string
+/// Reads the next line of text from a file stream. The returned string
 /// will include the newline `\n` character. If the stream contains a Windows
 /// newline `\r\n` then only the `\n` will be returned.
+/// 
+/// For file streams opened in `Raw` mode, this function always reads UTF-8.
+/// Otherwise, it uses the text encoding specified when the file was opened
+/// (which defaults to `Latin1`).
 ///
 pub fn read_line(stream: FileStream) -> Result(String, FileStreamError) {
-  use <- bool.guard(stream.is_binary, Error(file_stream_error.Enotsup))
+  case stream.is_raw {
+    True ->
+      case erl_file_read_line(stream.io_device) {
+        raw_read_result.Ok(data) ->
+          data
+          |> bit_array.to_string
+          |> result.replace_error(file_stream_error.InvalidUnicode)
 
-  case erl_io_get_line(stream.io_device) {
-    raw_read_result.Ok(data) -> codepoints_to_string(data)
-    raw_read_result.Eof -> Error(file_stream_error.Eof)
-    raw_read_result.Error(e) -> Error(e)
+        raw_read_result.Eof -> Error(file_stream_error.Eof)
+        raw_read_result.Error(e) -> Error(e)
+      }
+
+    False ->
+      case erl_io_get_line(stream.io_device) {
+        raw_read_result.Ok(data) -> Ok(data)
+        raw_read_result.Eof -> Error(file_stream_error.Eof)
+        raw_read_result.Error(e) -> Error(e)
+      }
   }
 }
 
 @external(erlang, "erl_file_streams", "io_get_line")
-fn erl_io_get_line(io_device: IoDevice) -> RawReadResult(List(Int))
+fn erl_io_get_line(io_device: IoDevice) -> RawReadResult(String)
 
-/// Reads the next `count` characters from a text file stream. The returned
-/// number of characters may be fewer than the number that was requested if the
-/// end of the stream is reached.
+@external(erlang, "file", "read_line")
+fn erl_file_read_line(io_device: IoDevice) -> RawReadResult(BitArray)
+
+/// Reads the next `count` characters from a file stream. The returned number of
+/// characters may be fewer than the number that was requested if the end of the
+/// stream is reached.
+/// 
+/// This function is not supported for file streams opened in `Raw` mode, and it
+/// uses the text encoding specified when the file was opened (which defaults to
+/// `Latin1`).
 ///
 pub fn read_chars(
   stream: FileStream,
   count: Int,
 ) -> Result(String, FileStreamError) {
-  use <- bool.guard(stream.is_binary, Error(file_stream_error.Enotsup))
+  case stream.is_raw {
+    False ->
+      case erl_io_get_chars(stream.io_device, count) {
+        raw_read_result.Ok(data) -> Ok(data)
+        raw_read_result.Eof -> Error(file_stream_error.Eof)
+        raw_read_result.Error(e) -> Error(e)
+      }
 
-  case erl_io_get_chars(stream.io_device, count) {
-    raw_read_result.Ok(data) -> codepoints_to_string(data)
-    raw_read_result.Eof -> Error(file_stream_error.Eof)
-    raw_read_result.Error(e) -> Error(e)
+    True -> Error(file_stream_error.Enotsup)
   }
 }
 
 @external(erlang, "erl_file_streams", "io_get_chars")
-fn erl_io_get_chars(io_device: IoDevice, count: Int) -> RawReadResult(List(Int))
+fn erl_io_get_chars(io_device: IoDevice, count: Int) -> RawReadResult(String)
 
-fn codepoints_to_string(
-  codepoints: List(Int),
-) -> Result(String, FileStreamError) {
-  codepoints
-  |> list.map(string.utf_codepoint)
-  |> result.all
-  |> result.map(string.from_utf_codepoints)
-  |> result.replace_error(file_stream_error.InvalidTextData)
-}
-
-/// Reads an 8-bit signed integer from a binary file stream.
+/// Reads an 8-bit signed integer from a file stream.
 ///
 pub fn read_int8(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 1))
@@ -353,7 +431,7 @@ pub fn read_int8(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads an 8-bit unsigned integer from a binary file stream.
+/// Reads an 8-bit unsigned integer from a file stream.
 ///
 pub fn read_uint8(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 1))
@@ -362,7 +440,7 @@ pub fn read_uint8(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 16-bit signed integer from a binary file stream.
+/// Reads a little-endian 16-bit signed integer from a file stream.
 ///
 pub fn read_int16_le(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 2))
@@ -371,7 +449,7 @@ pub fn read_int16_le(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 16-bit signed integer from a binary file stream.
+/// Reads a big-endian 16-bit signed integer from a file stream.
 ///
 pub fn read_int16_be(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 2))
@@ -380,7 +458,7 @@ pub fn read_int16_be(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 16-bit unsigned integer from a binary file stream.
+/// Reads a little-endian 16-bit unsigned integer from a file stream.
 ///
 pub fn read_uint16_le(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 2))
@@ -389,7 +467,7 @@ pub fn read_uint16_le(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 16-bit unsigned integer from a binary file stream.
+/// Reads a big-endian 16-bit unsigned integer from a file stream.
 ///
 pub fn read_uint16_be(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 2))
@@ -398,7 +476,7 @@ pub fn read_uint16_be(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 32-bit signed integer from a binary file stream.
+/// Reads a little-endian 32-bit signed integer from a file stream.
 ///
 pub fn read_int32_le(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 4))
@@ -407,7 +485,7 @@ pub fn read_int32_le(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 32-bit signed integer from a binary file stream.
+/// Reads a big-endian 32-bit signed integer from a file stream.
 ///
 pub fn read_int32_be(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 4))
@@ -416,7 +494,7 @@ pub fn read_int32_be(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 32-bit unsigned integer from a binary file stream.
+/// Reads a little-endian 32-bit unsigned integer from a file stream.
 ///
 pub fn read_uint32_le(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 4))
@@ -425,7 +503,7 @@ pub fn read_uint32_le(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 32-bit unsigned integer from a binary file stream.
+/// Reads a big-endian 32-bit unsigned integer from a file stream.
 ///
 pub fn read_uint32_be(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 4))
@@ -434,7 +512,7 @@ pub fn read_uint32_be(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 64-bit signed integer from a binary file stream.
+/// Reads a little-endian 64-bit signed integer from a file stream.
 ///
 pub fn read_int64_le(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 8))
@@ -443,7 +521,7 @@ pub fn read_int64_le(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 64-bit signed integer from a binary file stream.
+/// Reads a big-endian 64-bit signed integer from a file stream.
 ///
 pub fn read_int64_be(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 8))
@@ -452,7 +530,7 @@ pub fn read_int64_be(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 64-bit unsigned integer from a binary file stream.
+/// Reads a little-endian 64-bit unsigned integer from a file stream.
 ///
 pub fn read_uint64_le(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 8))
@@ -461,7 +539,7 @@ pub fn read_uint64_le(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 64-bit unsigned integer from a binary file stream.
+/// Reads a big-endian 64-bit unsigned integer from a file stream.
 ///
 pub fn read_uint64_be(stream: FileStream) -> Result(Int, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 8))
@@ -470,7 +548,7 @@ pub fn read_uint64_be(stream: FileStream) -> Result(Int, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 32-bit float from a binary file stream.
+/// Reads a little-endian 32-bit float from a file stream.
 ///
 pub fn read_float32_le(stream: FileStream) -> Result(Float, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 4))
@@ -479,7 +557,7 @@ pub fn read_float32_le(stream: FileStream) -> Result(Float, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 32-bit float from a binary file stream.
+/// Reads a big-endian 32-bit float from a file stream.
 ///
 pub fn read_float32_be(stream: FileStream) -> Result(Float, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 4))
@@ -488,7 +566,7 @@ pub fn read_float32_be(stream: FileStream) -> Result(Float, FileStreamError) {
   v
 }
 
-/// Reads a little-endian 64-bit float from a binary file stream.
+/// Reads a little-endian 64-bit float from a file stream.
 ///
 pub fn read_float64_le(stream: FileStream) -> Result(Float, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 8))
@@ -497,7 +575,7 @@ pub fn read_float64_le(stream: FileStream) -> Result(Float, FileStreamError) {
   v
 }
 
-/// Reads a big-endian 64-bit float from a binary file stream.
+/// Reads a big-endian 64-bit float from a file stream.
 ///
 pub fn read_float64_be(stream: FileStream) -> Result(Float, FileStreamError) {
   use bits <- result.map(read_bytes_exact(stream, 8))
@@ -506,17 +584,17 @@ pub fn read_float64_be(stream: FileStream) -> Result(Float, FileStreamError) {
   v
 }
 
-/// Reads the specified type the requested number of times from a binary file
-/// stream, e.g. two little-endian 32-bit integers, or four big-endian 64-bit
-/// floats, and returns the values in a list.
+/// Reads the specified type the requested number of times from a file stream,
+/// e.g. two little-endian 32-bit integers, or four big-endian 64-bit floats,
+/// and returns the values in a list.
 ///
 /// ## Examples
 ///
 /// ```gleam
-/// read_list(stream, read_stream.read_int32_le, 2)
+/// read_list(stream, read_int32_le, 2)
 /// |> Ok([1, 2])
 ///
-/// read_list(stream, read_stream.read_float64_be, 4)
+/// read_list(stream, read_float64_be, 4)
 /// |> Ok([1.0, 2.0])
 /// ```
 ///

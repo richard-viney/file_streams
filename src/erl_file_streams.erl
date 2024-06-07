@@ -31,4 +31,3 @@ io_put_chars(Device, CharData) ->
     catch 
         error:no_translation -> {error, {no_translation, unicode, latin1}}
     end.
-

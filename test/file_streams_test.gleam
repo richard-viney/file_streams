@@ -48,7 +48,8 @@ pub fn read_ints_and_floats_test() {
   )
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [file_open_mode.Read, file_open_mode.Raw])
 
   file_stream.read_int8(stream)
   |> should.equal(Ok(-100))
@@ -118,6 +119,9 @@ pub fn read_bytes_exact_test() {
   file_stream.read_bytes_exact(stream, 3)
   |> should.equal(Error(file_stream_error.Eof))
 
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
 }
@@ -134,6 +138,9 @@ pub fn read_remaining_bytes_test() {
   remaining_bytes
   |> bit_array.to_string
   |> should.equal(Ok(string.repeat("Test", 25_000)))
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
@@ -184,6 +191,9 @@ pub fn position_test() {
   file_stream.read_bytes_exact(stream, 2)
   |> should.equal(Ok(<<"34":utf8>>))
 
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
 }
@@ -192,11 +202,7 @@ pub fn position_test() {
 ///
 pub fn read_write_test() {
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Read,
-      file_open_mode.Write,
-      file_open_mode.Binary,
-    ])
+    file_stream.open(tmp_file_name, [file_open_mode.Read, file_open_mode.Write])
 
   file_stream.write_bytes(stream, <<"Test1234":utf8>>)
   |> should.equal(Ok(Nil))
@@ -241,7 +247,7 @@ pub fn append_test() {
 }
 
 pub fn read_line_read_chars_test() {
-  let assert Ok(stream) = file_stream.open_write_text(tmp_file_name)
+  let assert Ok(stream) = file_stream.open_write(tmp_file_name)
 
   file_stream.write_chars(stream, "Hello\nBoo 👻!\n1🦑234\nLast")
   |> should.equal(Ok(Nil))
@@ -249,7 +255,22 @@ pub fn read_line_read_chars_test() {
   file_stream.close(stream)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read_text(tmp_file_name)
+  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+
+  file_stream.read_line(stream)
+  |> should.equal(Ok("Hello\n"))
+
+  file_stream.read_line(stream)
+  |> should.equal(Ok("Boo 👻!\n"))
+
+  file_stream.read_chars(stream, 1)
+  |> should.equal(Error(file_stream_error.Enotsup))
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
+  let assert Ok(stream) =
+    file_stream.open_read_text(tmp_file_name, text_encoding.Unicode)
 
   file_stream.read_line(stream)
   |> should.equal(Ok("Hello\n"))
@@ -285,7 +306,16 @@ pub fn read_invalid_utf8_test() {
   simplifile.write_bits(tmp_file_name, invalid_utf8_bytes)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read_text(tmp_file_name)
+  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+
+  file_stream.read_line(stream)
+  |> should.equal(Error(file_stream_error.InvalidUnicode))
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
+  let assert Ok(stream) =
+    file_stream.open_read_text(tmp_file_name, text_encoding.Unicode)
 
   file_stream.read_line(stream)
   |> should.equal(
@@ -294,6 +324,9 @@ pub fn read_invalid_utf8_test() {
       text_encoding.Unicode,
     )),
   )
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
@@ -304,10 +337,7 @@ pub fn read_latin1_test() {
   |> should.equal(Ok(Nil))
 
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Read,
-      file_open_mode.Encoding(text_encoding.Latin1),
-    ])
+    file_stream.open_read_text(tmp_file_name, text_encoding.Latin1)
 
   file_stream.read_chars(stream, 1)
   |> should.equal(Ok("Ã"))
@@ -315,16 +345,16 @@ pub fn read_latin1_test() {
   file_stream.read_line(stream)
   |> should.equal(Ok("Ô"))
 
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
 }
 
 pub fn write_latin1_test() {
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Write,
-      file_open_mode.Encoding(text_encoding.Latin1),
-    ])
+    file_stream.open_write_text(tmp_file_name, text_encoding.Latin1)
 
   file_stream.write_chars(stream, "ÃÔ")
   |> should.equal(Ok(Nil))
@@ -336,10 +366,7 @@ pub fn write_latin1_test() {
   |> should.equal(Ok(<<0xC3, 0xD4>>))
 
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Write,
-      file_open_mode.Encoding(text_encoding.Latin1),
-    ])
+    file_stream.open_write_text(tmp_file_name, text_encoding.Latin1)
 
   file_stream.write_chars(stream, "日本")
   |> should.equal(
@@ -348,6 +375,9 @@ pub fn write_latin1_test() {
       text_encoding.Latin1,
     )),
   )
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
@@ -358,10 +388,10 @@ pub fn read_utf16le_test() {
   |> should.equal(Ok(Nil))
 
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Read,
-      file_open_mode.Encoding(text_encoding.Utf16(text_encoding.Little)),
-    ])
+    file_stream.open_read_text(
+      tmp_file_name,
+      text_encoding.Utf16(text_encoding.Little),
+    )
 
   file_stream.read_chars(stream, 2)
   |> should.equal(Ok("日本"))
@@ -369,16 +399,19 @@ pub fn read_utf16le_test() {
   file_stream.read_line(stream)
   |> should.equal(Ok("語"))
 
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
 }
 
 pub fn write_utf16le_test() {
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Write,
-      file_open_mode.Encoding(text_encoding.Utf16(text_encoding.Little)),
-    ])
+    file_stream.open_write_text(
+      tmp_file_name,
+      text_encoding.Utf16(text_encoding.Little),
+    )
 
   file_stream.write_chars(stream, "日本語")
   |> should.equal(Ok(Nil))
@@ -394,17 +427,25 @@ pub fn write_utf16le_test() {
 }
 
 pub fn read_utf32be_test() {
-  simplifile.write_bits(tmp_file_name, <<0x00, 0x01, 0x03, 0x48>>)
+  simplifile.write_bits(tmp_file_name, <<
+    0x00, 0x01, 0x03, 0x48, 0xFF, 0xFF, 0xFF, 0xFF,
+  >>)
   |> should.equal(Ok(Nil))
 
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Read,
-      file_open_mode.Encoding(text_encoding.Utf32(text_encoding.Big)),
-    ])
+    file_stream.open_read_text(
+      tmp_file_name,
+      text_encoding.Utf32(text_encoding.Big),
+    )
 
-  file_stream.read_line(stream)
+  file_stream.read_chars(stream, 1)
   |> should.equal(Ok("𐍈"))
+
+  file_stream.read_chars(stream, 1)
+  |> should.equal(Error(file_stream_error.InvalidUnicode))
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
@@ -412,10 +453,10 @@ pub fn read_utf32be_test() {
 
 pub fn write_utf32be_test() {
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [
-      file_open_mode.Write,
-      file_open_mode.Encoding(text_encoding.Utf32(text_encoding.Big)),
-    ])
+    file_stream.open_write_text(
+      tmp_file_name,
+      text_encoding.Utf32(text_encoding.Big),
+    )
 
   file_stream.write_chars(stream, "𐍈")
   |> should.equal(Ok(Nil))

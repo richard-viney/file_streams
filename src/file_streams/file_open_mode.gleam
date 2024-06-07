@@ -12,11 +12,8 @@ pub type FileOpenMode {
   /// Causes read operations on the file stream to return binaries rather than
   /// lists.
   /// 
-  /// If this mode is specified then binary data can be read from and/or written
-  /// to the file stream. If it is not specified then text data data can be read
-  /// from and/or written to the file stream.
-  ///
-  /// This mode must not be present when the `Encoding(...)` mode is present.
+  /// This mode is always set by [`file_stream.open()`](./file_stream.html#open)
+  /// and does not need to be specified manually.
   Binary
 
   /// Data in subsequent `file_stream.write_*` calls are buffered until at least
@@ -52,6 +49,8 @@ pub type FileOpenMode {
   ///
   /// If characters are written that can't be converted to the specified
   /// encoding then an error occurs and the file is closed.
+  /// 
+  /// This option is not allowed when `Raw` is specified.
   Encoding(encoding: TextEncoding)
 
   /// The file is opened for writing. It is created if it does not exist. If the
@@ -64,14 +63,16 @@ pub type FileOpenMode {
   /// systems are safe).
   Exclusive
 
-  /// Allows faster access to a file, as no Erlang process is needed to handle
-  /// the file. However, a file opened in this way has the following
+  /// Allows much faster access to a file, as no Erlang process is needed to
+  /// handle the file. However, a file opened in this way has the following
   /// limitations:
   /// 
   /// - Only the Erlang process that opened the file can use it.
-  /// - Text-based reading and writing can't be performed, as it depends on the
-  ///   `io` module which cannot be used in raw mode, as it can only talk to an
-  ///   Erlang process.
+  /// - The `Encoding` option can't be used and text-based reading and writing
+  ///   is always done in UTF-8. This is because other text encodings depend on
+  ///   the `io` module, which requires an Erlang process to talk to.
+  /// - The [`file_stream.read_chars()`](./file_stream.html#read_chars) function
+  ///   can't be used and will return `Error(Enotsup)`.
   /// - A remote Erlang file server cannot be used. The computer on which the
   ///   Erlang node is running must have access to the file system (directly or
   ///   through NFS).

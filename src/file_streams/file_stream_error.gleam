@@ -153,10 +153,12 @@ pub type FileStreamError {
   /// be read.
   Eof
 
-  /// Invalid data was encountered when reading text.
-  InvalidTextData
-
   /// Text data was encountered that can't be converted from/to the relevant
-  /// text encoding.
+  /// text encoding. E.g. trying to write Chinese characters to a file stream
+  /// opened with the `Latin1` encoding.
   NoTranslation(from: TextEncoding, to: TextEncoding)
+
+  /// Data was encountered that is not valid Unicode. E.g. invalid bytes in a
+  /// UTF-8 text file.
+  InvalidUnicode
 }
