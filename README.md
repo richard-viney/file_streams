@@ -4,10 +4,9 @@ This Gleam library provides access to Erlang's file streams for reading and
 writing files. If you don't require streaming behaviour then consider using
 [`simplifile`](https://hex.pm/packages/simplifile) instead.
 
-This library only supports the Erlang target.
-
 [![Package Version](https://img.shields.io/hexpm/v/file_streams)](https://hex.pm/packages/file_streams)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/file_streams/)
+![Erlang-compatible](https://img.shields.io/badge/target-erlang-a90432)
 
 ## Example
 
