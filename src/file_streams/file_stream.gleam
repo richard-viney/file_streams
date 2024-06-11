@@ -24,9 +24,11 @@ pub opaque type FileStream {
 /// the available file modes.
 ///
 /// For simple cases of opening a file stream prefer one of the
-/// [`open_read()`](#open_read) or [`open_write()`](#open_write) helper
-/// functions so you don't have to manually specify the file mode.
-/// 
+/// [`open_read()`](#open_read), [`open_write()`](#open_write),
+/// [`open_read_text()`](#open_read_text), or
+/// [`open_write_text()`](#open_write_text) helper functions to avoid needing to
+/// manually specify the file mode.
+///
 /// Once the file stream is no longer needed it should be closed with
 /// [`close()`](#close).
 ///
@@ -46,7 +48,7 @@ pub fn open(
     })
 
   // Raw mode is not allowed when specifying a text encoding, as per the Erlang
-  // docs
+  // docs, so turn it into an explicit error
   use <- bool.guard(
     is_raw && encoding != Error(Nil),
     Error(file_stream_error.Enotsup),
@@ -72,9 +74,9 @@ fn erl_file_open(
 
 /// Opens a new file stream for reading from the specified file. Allows for
 /// efficient reading of binary data and lines of UTF-8 text.
-/// 
+///
 /// The modes used are:
-/// 
+///
 /// - `Read`
 /// - `ReadAhead(size: 64 * 1024)`
 /// - `Raw`
@@ -87,12 +89,12 @@ pub fn open_read(filename: String) -> Result(FileStream, FileStreamError) {
   ])
 }
 
-/// Opens a new file stream for reading encoded text from the specified file. If
-/// only reading of UTF-8 lines of text is needed then prefer `open_read()` as
-/// it is much faster due to using `Raw` mode.
-/// 
+/// Opens a new file stream for reading encoded text from a file. If only
+/// reading of UTF-8 lines of text is needed then prefer
+/// [`open_read()`](#open_read) as it is much faster due to using `Raw` mode.
+///
 /// The modes used are:
-/// 
+///
 /// - `Read`
 /// - `ReadAhead(size: 64 * 1024)`
 /// - `Encoding(encoding)`
@@ -108,11 +110,11 @@ pub fn open_read_text(
   ])
 }
 
-/// Opens a new file stream for writing to the specified file. Allows for
-/// efficient writing of binary data and UTF-8 text.
-/// 
+/// Opens a new file stream for writing to a file. Allows for efficient writing
+/// of binary data and UTF-8 text.
+///
 /// The modes used are:
-/// 
+///
 /// - `Write`
 /// - `DelayedWrite(size: 64 * 1024, delay: 2000)`
 /// - `Raw`
@@ -125,12 +127,12 @@ pub fn open_write(filename: String) -> Result(FileStream, FileStreamError) {
   ])
 }
 
-/// Opens a new file stream for writing encoded text to the specified file. If
-/// only writing of UTF-8 text is needed then prefer `open_write()` as it is
+/// Opens a new file stream for writing encoded text to a file. If only writing
+/// of UTF-8 text is needed then prefer [`open_write()`](#open_write) as it is
 /// much faster due to using `Raw` mode.
-/// 
+///
 /// The modes used are:
-/// 
+///
 /// - `Read`
 /// - `ReadAhead(size: 64 * 1024)`
 /// - `Encoding(encoding)`
@@ -206,11 +208,11 @@ fn erl_file_position(
   location: ErlLocation,
 ) -> Result(Int, FileStreamError)
 
-/// Writes bytes to a file stream.
+/// Writes raw bytes to a file stream.
 ///
 /// This function is supported when the file stream was opened in `Raw` mode or
-/// it uses the `Latin1` text encoding (which is the default). If this is not
-/// the case then [`write_chars()`](#write_chars) should be used instead.
+/// it uses the default `Latin1` text encoding. If this is not the case then
+/// use [`write_chars()`](#write_chars).
 ///
 pub fn write_bytes(
   stream: FileStream,
@@ -277,9 +279,8 @@ fn erl_file_sync(io_device: IoDevice) -> RawResult
 /// then `Error(Eof)` is returned.
 ///
 /// This function is supported when the file stream was opened in `Raw` mode or
-/// it uses the `Latin1` text encoding (which is the default). If this is not
-/// the case then [`read_chars()`](#read_chars) or [`read_line()`](#read_line)
-/// should be used instead.
+/// it uses the default `Latin1` text encoding. If this is not the case then
+/// use [`read_chars()`](#read_chars) or [`read_line()`](#read_line).
 ///
 pub fn read_bytes(
   stream: FileStream,
@@ -308,9 +309,9 @@ fn erl_file_read(
 /// then `Error(Eof)` is returned.
 ///
 /// This function is supported when the file stream was opened in `Raw` mode or
-/// it uses the `Latin1` text encoding (which is the default). If this is not
-/// the case then [`read_chars()`](#read_chars) or [`read_line()`](#read_line)
-/// should be used instead.
+/// it uses the default `Latin1` text encoding. If this is not the case then use
+/// [`read_chars()`](#read_chars) or [`read_line()`](#read_line) should be used
+/// instead.
 ///
 pub fn read_bytes_exact(
   stream: FileStream,
@@ -332,9 +333,9 @@ pub fn read_bytes_exact(
 /// never returns `Error(Eof)`.
 ///
 /// This function is supported when the file stream was opened in `Raw` mode or
-/// it uses the `Latin1` text encoding (which is the default). If this is not
-/// the case then [`read_chars()`](#read_chars) or [`read_line()`](#read_line)
-/// should be used instead.
+/// it uses the default `Latin1` text encoding. If this is not the case then use
+/// [`read_chars()`](#read_chars) or [`read_line()`](#read_line) should be used
+/// instead.
 ///
 pub fn read_remaining_bytes(
   stream: FileStream,
@@ -362,10 +363,9 @@ fn do_read_remaining_bytes(
 /// Reads the next line of text from a file stream. The returned string
 /// will include the newline `\n` character. If the stream contains a Windows
 /// newline `\r\n` then only the `\n` will be returned.
-/// 
-/// For file streams opened in `Raw` mode, this function always reads UTF-8.
-/// Otherwise, it uses the text encoding specified when the file was opened
-/// (which defaults to `Latin1`).
+///
+/// This function always reads UTF-8 for file streams opened in `Raw` mode.
+/// Otherwise, it uses the text encoding specified when the file was opened.
 ///
 pub fn read_line(stream: FileStream) -> Result(String, FileStreamError) {
   case stream.is_raw {
@@ -398,10 +398,9 @@ fn erl_file_read_line(io_device: IoDevice) -> RawReadResult(BitArray)
 /// Reads the next `count` characters from a file stream. The returned number of
 /// characters may be fewer than the number that was requested if the end of the
 /// stream is reached.
-/// 
-/// This function is not supported for file streams opened in `Raw` mode, and it
-/// uses the text encoding specified when the file was opened (which defaults to
-/// `Latin1`).
+///
+/// This function is not supported for file streams opened in `Raw` mode. Use the
+/// [`read_line()`](#read_line) function instead.
 ///
 pub fn read_chars(
   stream: FileStream,

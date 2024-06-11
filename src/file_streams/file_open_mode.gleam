@@ -11,7 +11,7 @@ pub type FileOpenMode {
 
   /// Causes read operations on the file stream to return binaries rather than
   /// lists.
-  /// 
+  ///
   /// This mode is always set by [`file_stream.open()`](./file_stream.html#open)
   /// and does not need to be specified manually.
   Binary
@@ -42,14 +42,14 @@ pub type FileOpenMode {
   DelayedWrite(size: Int, delay: Int)
 
   /// Makes the file stream perform automatic translation of text to and from
-  /// the specified text encoding when using the 
+  /// the specified text encoding when using the
   /// [`file_stream.read_line()`](./file_stream.html#read_line),
   /// [`file_stream.read_chars()`](./file_stream.html#read_chars), and
   /// [`file_stream.write_chars()`](./file_stream.html#write_chars) functions.
   ///
   /// If characters are written that can't be converted to the specified
   /// encoding then an error occurs and the file is closed.
-  /// 
+  ///
   /// This option is not allowed when `Raw` is specified.
   Encoding(encoding: TextEncoding)
 
@@ -66,7 +66,7 @@ pub type FileOpenMode {
   /// Allows much faster access to a file, as no Erlang process is needed to
   /// handle the file. However, a file opened in this way has the following
   /// limitations:
-  /// 
+  ///
   /// - Only the Erlang process that opened the file can use it.
   /// - The `Encoding` option can't be used and text-based reading and writing
   ///   is always done in UTF-8. This is because other text encodings depend on

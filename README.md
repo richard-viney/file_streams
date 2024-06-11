@@ -16,10 +16,6 @@ Add this library to your project:
 gleam add file_streams
 ```
 
-API documentation can be found at <https://hexdocs.pm/file_streams/>.
-
-### Binary File Streams & UTF-8
-
 The following code writes data to a file using a file stream, then reads it
 back in using a second file stream, first as raw bytes and then as lines of
 UTF-8 text.
@@ -55,10 +51,33 @@ pub fn main() {
 }
 ```
 
-### Text File Streams
+### Working with Text Encodings
 
-The following code reads a UTF-16 text file. The supported encodings are
-`Latin1` (ISO 8859-1), `UTF-8`, `UTF-16`, and `UTF-32`.
+If a text encoding is specified when opening a file stream it allows for
+reading and writing of characters and lines of text stored in that encoding.
+Open a text file stream using the [`file_stream.open_read_text()`](./file_streams/file_stream.html#open_read_text)
+and [`file_stream.open_write_text()`](./file_streams/file_stream.html#open_write_text)
+functions. The [supported encodings](./file_streams/text_encoding.html) are
+`Latin1`, `Unicode` (UTF-8), `Utf16`, and `Utf32`. The default encoding is
+`Latin1`.
+
+File streams opened with a text encoding aren't compatible with the `Raw` [file
+open mode](./file_streams/file_open_mode.html) that is used to significantly
+improve IO performance on Erlang. Specifying both `Raw` and `Encoding` when
+calling [`file_stream.open()`](./file_streams/file_stream.html#open) returns
+`Error(Enotsup)`.
+
+Although a text encoding can't be specified with `Raw` mode,
+[`file_stream.read_line()`](./file_streams/file_stream.html#read_line) and
+[`file_stream.write_chars()`](./file_streams/file_stream.html#write_chars) can
+still be used to work with UTF-8 data. This means that text encoded as UTF-8 can
+be handled with high performance in `Raw` mode.
+
+When a text encoding other than `Latin1` is specified, functions that read and
+write raw bytes and other binary data aren't supported and will return
+`Error(Enotsup)`.
+
+The following code demonstrates working with a UTF-16 file stream.
 
 ```gleam
 import file_streams/file_stream
@@ -84,6 +103,10 @@ pub fn main() {
   let assert Ok(Nil) = file_stream.close(stream)
 }
 ```
+
+### API Documentation
+
+API documentation can be found at <https://hexdocs.pm/file_streams/>.
 
 ## License
 

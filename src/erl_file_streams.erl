@@ -28,6 +28,6 @@ io_put_chars(Device, CharData) ->
             ok -> {ok, nil};
             {error, Reason} -> {error, Reason}
         end
-    catch 
+    catch
         error:no_translation -> {error, {no_translation, unicode, latin1}}
     end.
