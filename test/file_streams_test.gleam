@@ -231,16 +231,29 @@ pub fn append_test() {
   |> should.equal(Ok(Nil))
 
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [file_open_mode.Append])
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Append,
+      file_open_mode.Read,
+      file_open_mode.Write,
+    ])
 
   file_stream.write_chars(stream, "5678")
+  |> should.equal(Ok(Nil))
+
+  file_stream.position(stream, file_stream.BeginningOfFile(0))
+  |> should.equal(Ok(0))
+
+  file_stream.read_chars(stream, 4)
+  |> should.equal(Ok("Test"))
+
+  file_stream.write_chars(stream, "9")
   |> should.equal(Ok(Nil))
 
   file_stream.close(stream)
   |> should.equal(Ok(Nil))
 
   simplifile.read(tmp_file_name)
-  |> should.equal(Ok("Test12345678"))
+  |> should.equal(Ok("Test123456789"))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
@@ -338,6 +351,12 @@ pub fn read_latin1_test() {
 
   let assert Ok(stream) =
     file_stream.open_read_text(tmp_file_name, text_encoding.Latin1)
+
+  file_stream.read_bytes(stream, 2)
+  |> should.equal(Ok(<<0xC3, 0xD4>>))
+
+  file_stream.position(stream, file_stream.BeginningOfFile(0))
+  |> should.equal(Ok(0))
 
   file_stream.read_chars(stream, 1)
   |> should.equal(Ok("Ã"))
@@ -466,6 +485,29 @@ pub fn write_utf32be_test() {
 
   simplifile.read_bits(tmp_file_name)
   |> should.equal(Ok(<<0x00, 0x01, 0x03, 0x48>>))
+
+  simplifile.delete(tmp_file_name)
+  |> should.equal(Ok(Nil))
+}
+
+pub fn set_encoding_test() {
+  let assert Ok(stream) =
+    file_stream.open_write_text(tmp_file_name, text_encoding.Latin1)
+
+  file_stream.write_chars(stream, "ÃÔ")
+  |> should.equal(Ok(Nil))
+
+  let assert Ok(stream) =
+    file_stream.set_encoding(stream, text_encoding.Unicode)
+
+  file_stream.write_chars(stream, "👻")
+  |> should.equal(Ok(Nil))
+
+  file_stream.close(stream)
+  |> should.equal(Ok(Nil))
+
+  simplifile.read_bits(tmp_file_name)
+  |> should.equal(Ok(<<0xC3, 0xD4, 0xF0, 0x9F, 0x91, 0xBB>>))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))

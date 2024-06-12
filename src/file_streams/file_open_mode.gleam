@@ -51,6 +51,9 @@ pub type FileOpenMode {
   /// encoding then an error occurs and the file is closed.
   ///
   /// This option is not allowed when `Raw` is specified.
+  ///
+  /// The text encoding of an open file stream can be changed with
+  /// [`file_stream.set_encoding()`](./file_stream.html#set_encoding) function.
   Encoding(encoding: TextEncoding)
 
   /// The file is opened for writing. It is created if it does not exist. If the

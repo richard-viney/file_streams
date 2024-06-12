@@ -1,4 +1,4 @@
-//// Use Erlang file streams in Gleam.
+//// Work with Erlang file streams in Gleam.
 
 import file_streams/file_open_mode.{type FileOpenMode}
 import file_streams/file_stream_error.{type FileStreamError}
@@ -8,6 +8,7 @@ import file_streams/text_encoding.{type TextEncoding, Latin1}
 import gleam/bit_array
 import gleam/bool
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result
 
 type IoDevice
@@ -16,7 +17,7 @@ type IoDevice
 /// modes specified when it was opened.
 ///
 pub opaque type FileStream {
-  FileStream(io_device: IoDevice, is_raw: Bool, text_encoding: TextEncoding)
+  FileStream(io_device: IoDevice, encoding: Option(TextEncoding))
 }
 
 /// Opens a new file stream that can read and/or write data from the specified
@@ -38,7 +39,7 @@ pub fn open(
 ) -> Result(FileStream, FileStreamError) {
   let is_raw = list.contains(modes, file_open_mode.Raw)
 
-  // Find the text encoding if one was specified
+  // Find the text encoding, if one was specified
   let encoding =
     list.find_map(modes, fn(m) {
       case m {
@@ -46,13 +47,17 @@ pub fn open(
         _ -> Error(Nil)
       }
     })
+    |> option.from_result
 
-  // Raw mode is not allowed when specifying a text encoding, as per the Erlang
-  // docs, so turn it into an explicit error
-  use <- bool.guard(
-    is_raw && encoding != Error(Nil),
-    Error(file_stream_error.Enotsup),
-  )
+  let encoding = case is_raw, encoding {
+    // Raw mode is not allowed when specifying a text encoding, as per the
+    // Erlang, so turn it into an explicit error
+    True, Some(_) -> Error(file_stream_error.Enotsup)
+
+    True, None -> Ok(None)
+    False, _ -> Ok(option.or(encoding, Some(text_encoding.Latin1)))
+  }
+  use encoding <- result.try(encoding)
 
   // Binary mode is forced on so the Erlang APIs return binaries rather than
   // lists
@@ -63,7 +68,7 @@ pub fn open(
 
   use io_device <- result.try(erl_file_open(filename, mode))
 
-  Ok(FileStream(io_device, is_raw, result.unwrap(encoding, Latin1)))
+  Ok(FileStream(io_device, encoding))
 }
 
 @external(erlang, "file", "open")
@@ -98,6 +103,9 @@ pub fn open_read(filename: String) -> Result(FileStream, FileStreamError) {
 /// - `Read`
 /// - `ReadAhead(size: 64 * 1024)`
 /// - `Encoding(encoding)`
+///
+/// The text encoding for a file stream can be changed with
+/// [`set_encoding`](#set_encoding).
 ///
 pub fn open_read_text(
   filename: String,
@@ -137,6 +145,9 @@ pub fn open_write(filename: String) -> Result(FileStream, FileStreamError) {
 /// - `ReadAhead(size: 64 * 1024)`
 /// - `Encoding(encoding)`
 ///
+/// The text encoding for a file stream can be changed with
+/// [`set_encoding`](#set_encoding).
+///
 pub fn open_write_text(
   filename: String,
   encoding: TextEncoding,
@@ -160,6 +171,29 @@ pub fn close(stream: FileStream) -> Result(Nil, FileStreamError) {
 @external(erlang, "file", "close")
 fn erl_file_close(io_device: IoDevice) -> RawResult
 
+/// Changes the text encoding of a file stream from what was configured when it
+/// was opened. Returns a new [`FileStream`](#FileStream) that should be used
+/// for subsequent calls.
+///
+/// This function is not supported for file streams opened in `Raw` mode.
+///
+pub fn set_encoding(
+  stream: FileStream,
+  encoding: TextEncoding,
+) -> Result(FileStream, FileStreamError) {
+  use <- bool.guard(stream.encoding == None, Error(file_stream_error.Enotsup))
+
+  let opts = [file_open_mode.Binary, file_open_mode.Encoding(encoding)]
+
+  case erl_io_setopts(stream.io_device, opts) {
+    raw_result.Ok -> Ok(FileStream(..stream, encoding: Some(encoding)))
+    raw_result.Error(e) -> Error(e)
+  }
+}
+
+@external(erlang, "io", "setopts")
+fn erl_io_setopts(io_device: IoDevice, opts: List(FileOpenMode)) -> RawResult
+
 /// A file stream location defined relative to the beginning of the file,
 /// the end of the file, or the current position in the file stream. This type
 /// is used with the [`position()`](#position) function.
@@ -182,6 +216,9 @@ pub type FileStreamLocation {
 /// can be relative to the beginning of the file, the end of the file, or the
 /// current position in the file. On success, returns the current position in
 /// the file stream as an absolute offset in bytes.
+///
+/// If a file stream is opened in `Append` mode then data is always written at
+/// the end of the file, regardless of the current file position.
 ///
 pub fn position(
   stream: FileStream,
@@ -219,7 +256,7 @@ pub fn write_bytes(
   bytes: BitArray,
 ) -> Result(Nil, FileStreamError) {
   use <- bool.guard(
-    stream.text_encoding != Latin1,
+    stream.encoding != None && stream.encoding != Some(Latin1),
     Error(file_stream_error.Enotsup),
   )
 
@@ -241,9 +278,9 @@ pub fn write_chars(
   stream: FileStream,
   chars: String,
 ) -> Result(Nil, FileStreamError) {
-  case stream.is_raw {
-    True -> chars |> bit_array.from_string |> write_bytes(stream, _)
-    False -> erl_io_put_chars(stream.io_device, chars)
+  case stream.encoding {
+    None -> chars |> bit_array.from_string |> write_bytes(stream, _)
+    Some(_) -> erl_io_put_chars(stream.io_device, chars)
   }
 }
 
@@ -287,7 +324,7 @@ pub fn read_bytes(
   byte_count: Int,
 ) -> Result(BitArray, FileStreamError) {
   use <- bool.guard(
-    stream.text_encoding != Latin1,
+    stream.encoding != None && stream.encoding != Some(Latin1),
     Error(file_stream_error.Enotsup),
   )
 
@@ -368,8 +405,8 @@ fn do_read_remaining_bytes(
 /// Otherwise, it uses the text encoding specified when the file was opened.
 ///
 pub fn read_line(stream: FileStream) -> Result(String, FileStreamError) {
-  case stream.is_raw {
-    True ->
+  case stream.encoding {
+    None ->
       case erl_file_read_line(stream.io_device) {
         raw_read_result.Ok(data) ->
           data
@@ -380,7 +417,7 @@ pub fn read_line(stream: FileStream) -> Result(String, FileStreamError) {
         raw_read_result.Error(e) -> Error(e)
       }
 
-    False ->
+    Some(_) ->
       case erl_io_get_line(stream.io_device) {
         raw_read_result.Ok(data) -> Ok(data)
         raw_read_result.Eof -> Error(file_stream_error.Eof)
@@ -399,22 +436,22 @@ fn erl_file_read_line(io_device: IoDevice) -> RawReadResult(BitArray)
 /// characters may be fewer than the number that was requested if the end of the
 /// stream is reached.
 ///
-/// This function is not supported for file streams opened in `Raw` mode. Use the
-/// [`read_line()`](#read_line) function instead.
+/// This function is not supported for file streams opened in `Raw` mode. Use
+/// the [`read_line()`](#read_line) function instead.
 ///
 pub fn read_chars(
   stream: FileStream,
   count: Int,
 ) -> Result(String, FileStreamError) {
-  case stream.is_raw {
-    False ->
+  case stream.encoding {
+    Some(_) ->
       case erl_io_get_chars(stream.io_device, count) {
         raw_read_result.Ok(data) -> Ok(data)
         raw_read_result.Eof -> Error(file_stream_error.Eof)
         raw_read_result.Error(e) -> Error(e)
       }
 
-    True -> Error(file_stream_error.Enotsup)
+    None -> Error(file_stream_error.Enotsup)
   }
 }
 

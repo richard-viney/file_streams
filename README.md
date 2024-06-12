@@ -16,9 +16,9 @@ Add this library to your project:
 gleam add file_streams
 ```
 
-The following code writes data to a file using a file stream, then reads it
-back in using a second file stream, first as raw bytes and then as lines of
-UTF-8 text.
+The following code writes data to a file using a file stream, then reads it back
+in using a second file stream, first as raw bytes and then as lines of UTF-8
+text.
 
 ```gleam
 import file_streams/file_stream
@@ -29,14 +29,13 @@ pub fn main() {
 
   // Write file
   let assert Ok(stream) = file_stream.open_write(filename)
-  let assert Ok(Nil) =
-    file_stream.write_bytes(stream, <<"Hello, world!\n":utf8>>)
+  let assert Ok(Nil) = file_stream.write_bytes(stream, <<"Hello!\n":utf8>>)
   let assert Ok(Nil) = file_stream.write_chars(stream, "12")
   let assert Ok(Nil) = file_stream.close(stream)
 
   // Read file
   let assert Ok(stream) = file_stream.open_read(filename)
-  let assert Ok(<<"Hello, world!\n":utf8>>) = file_stream.read_bytes(stream, 14)
+  let assert Ok(<<"Hello!\n":utf8>>) = file_stream.read_bytes(stream, 7)
   let assert Ok([49, 50]) =
     file_stream.read_list(stream, file_stream.read_uint8, 2)
   let assert Error(file_stream_error.Eof) = file_stream.read_bytes(stream, 1)
@@ -44,7 +43,7 @@ pub fn main() {
   // Reset file position to the start and read line by line
   let assert Ok(0) =
     file_stream.position(stream, file_stream.BeginningOfFile(0))
-  let assert Ok("Hello, world!\n") = file_stream.read_line(stream)
+  let assert Ok("Hello!\n") = file_stream.read_line(stream)
   let assert Ok("12") = file_stream.read_line(stream)
   let assert Error(file_stream_error.Eof) = file_stream.read_line(stream)
   let assert Ok(Nil) = file_stream.close(stream)
@@ -90,13 +89,13 @@ pub fn main() {
 
   // Write UTF-16 text file
   let assert Ok(stream) = file_stream.open_write_text(filename, encoding)
-  let assert Ok(Nil) = file_stream.write_chars(stream, "Hello, world!\n")
+  let assert Ok(Nil) = file_stream.write_chars(stream, "Hello!\n")
   let assert Ok(Nil) = file_stream.write_chars(stream, "Gleam is cool!\n")
   let assert Ok(Nil) = file_stream.close(stream)
 
   // Read UTF-16 text file
   let assert Ok(stream) = file_stream.open_read_text(filename, encoding)
-  let assert Ok("Hello, world!\n") = file_stream.read_line(stream)
+  let assert Ok("Hello!\n") = file_stream.read_line(stream)
   let assert Ok("Gleam") = file_stream.read_chars(stream, 5)
   let assert Ok(" is cool!\n") = file_stream.read_line(stream)
   let assert Error(file_stream_error.Eof) = file_stream.read_line(stream)
