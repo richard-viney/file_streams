@@ -6,7 +6,7 @@ writing files. If you don't require streaming behaviour then consider using
 
 [![Package Version](https://img.shields.io/hexpm/v/file_streams)](https://hex.pm/packages/file_streams)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/file_streams/)
-![Erlang-compatible](https://img.shields.io/badge/target-erlang-a90432)
+![Erlang Compatible](https://img.shields.io/badge/target-erlang-a90432)
 
 ## Usage
 
@@ -54,23 +54,19 @@ pub fn main() {
 
 If a text encoding is specified when opening a file stream it allows for
 reading and writing of characters and lines of text stored in that encoding.
-Open a text file stream using the [`file_stream.open_read_text()`](./file_streams/file_stream.html#open_read_text)
-and [`file_stream.open_write_text()`](./file_streams/file_stream.html#open_write_text)
-functions. The [supported encodings](./file_streams/text_encoding.html) are
-`Latin1`, `Unicode` (UTF-8), `Utf16`, and `Utf32`. The default encoding is
-`Latin1`.
+Open a text file stream using the `file_stream.open_read_text()` and
+`file_stream.open_write_text()`functions. The supported encodings are `Latin1`,
+`Unicode` (UTF-8), `Utf16`, and `Utf32`. The default encoding is `Latin1`.
 
-File streams opened with a text encoding aren't compatible with the `Raw` [file
-open mode](./file_streams/file_open_mode.html) that is used to significantly
-improve IO performance on Erlang. Specifying both `Raw` and `Encoding` when
-calling [`file_stream.open()`](./file_streams/file_stream.html#open) returns
+File streams opened with a text encoding aren't compatible with the `Raw` file
+open mode that is used to significantly improve IO performance on Erlang.
+Specifying both `Raw` and `Encoding` when calling `file_stream.open()` returns
 `Error(Enotsup)`.
 
 Although a text encoding can't be specified with `Raw` mode,
-[`file_stream.read_line()`](./file_streams/file_stream.html#read_line) and
-[`file_stream.write_chars()`](./file_streams/file_stream.html#write_chars) can
-still be used to work with UTF-8 data. This means that text encoded as UTF-8 can
-be handled with high performance in `Raw` mode.
+`file_stream.read_line()` and `file_stream.write_chars()` can still be used to
+work with UTF-8 data. This means that text encoded as UTF-8 can be handled with
+high performance in `Raw` mode.
 
 When a text encoding other than `Latin1` is specified, functions that read and
 write raw bytes and other binary data aren't supported and will return
