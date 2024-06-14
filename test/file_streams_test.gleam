@@ -1,4 +1,3 @@
-import file_streams/file_open_mode
 import file_streams/file_stream
 import file_streams/file_stream_error
 import file_streams/text_encoding
@@ -8,7 +7,7 @@ import gleeunit
 import gleeunit/should
 import simplifile
 
-const tmp_file_name = "file_streams.test"
+const tmp_file_name = "file_stream.test"
 
 pub fn main() {
   gleeunit.main()
@@ -49,7 +48,10 @@ pub fn read_ints_and_floats_test() {
   |> should.equal(Ok(Nil))
 
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [file_open_mode.Read, file_open_mode.Raw])
+    file_stream.new_builder()
+    |> file_stream.read
+    |> file_stream.raw
+    |> file_stream.build(tmp_file_name)
 
   file_stream.read_int8(stream)
   |> should.equal(Ok(-100))
@@ -111,7 +113,9 @@ pub fn read_bytes_exact_test() {
   simplifile.write(tmp_file_name, "Test")
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.raw() |> file_stream.build(tmp_file_name)
 
   file_stream.read_bytes_exact(stream, 2)
   |> should.equal(Ok(<<"Te":utf8>>))
@@ -130,7 +134,10 @@ pub fn read_remaining_bytes_test() {
   simplifile.write(tmp_file_name, string.repeat("Test", 50_000))
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.raw() |> file_stream.build(tmp_file_name)
+
   let assert Ok(_) = file_stream.read_bytes_exact(stream, 100_000)
 
   let assert Ok(remaining_bytes) = file_stream.read_remaining_bytes(stream)
@@ -150,7 +157,9 @@ pub fn position_test() {
   simplifile.write(tmp_file_name, "Test1234")
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.raw() |> file_stream.build(tmp_file_name)
 
   file_stream.read_bytes_exact(stream, 2)
   |> should.equal(Ok(<<"Te":utf8>>))
@@ -201,8 +210,9 @@ pub fn position_test() {
 /// Test reading and writing in the same file stream.
 ///
 pub fn read_write_test() {
-  let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [file_open_mode.Read, file_open_mode.Write])
+
+    let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.write() |> file_stream.read() |> file_stream.build(tmp_file_name)
 
   file_stream.write_bytes(stream, <<"Test1234":utf8>>)
   |> should.equal(Ok(Nil))
@@ -230,8 +240,8 @@ pub fn append_test() {
   simplifile.write(tmp_file_name, "Test1234")
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [file_open_mode.Append])
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.append() |> file_stream.build(tmp_file_name)
 
   file_stream.write_chars(stream, "5678")
   |> should.equal(Ok(Nil))
@@ -247,7 +257,9 @@ pub fn append_test() {
 }
 
 pub fn read_line_read_chars_test() {
-  let assert Ok(stream) = file_stream.open_write(tmp_file_name)
+
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.write() |> file_stream.build(tmp_file_name)
 
   file_stream.write_chars(stream, "Hello\nBoo 👻!\n1🦑234\nLast")
   |> should.equal(Ok(Nil))
@@ -255,7 +267,8 @@ pub fn read_line_read_chars_test() {
   file_stream.close(stream)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |> file_stream.build(tmp_file_name)
 
   file_stream.read_line(stream)
   |> should.equal(Ok("Hello\n"))
@@ -269,8 +282,9 @@ pub fn read_line_read_chars_test() {
   file_stream.close(stream)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) =
-    file_stream.open_read_text(tmp_file_name, text_encoding.Unicode)
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.unicode() |> file_stream.build(tmp_file_name)
 
   file_stream.read_line(stream)
   |> should.equal(Ok("Hello\n"))
@@ -306,7 +320,9 @@ pub fn read_invalid_utf8_test() {
   simplifile.write_bits(tmp_file_name, invalid_utf8_bytes)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) = file_stream.open_read(tmp_file_name)
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.raw() |> file_stream.build(tmp_file_name)
 
   file_stream.read_line(stream)
   |> should.equal(Error(file_stream_error.InvalidUnicode))
@@ -314,8 +330,9 @@ pub fn read_invalid_utf8_test() {
   file_stream.close(stream)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) =
-    file_stream.open_read_text(tmp_file_name, text_encoding.Unicode)
+    let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.unicode() |> file_stream.build(tmp_file_name)
 
   file_stream.read_line(stream)
   |> should.equal(
@@ -336,8 +353,9 @@ pub fn read_latin1_test() {
   simplifile.write_bits(tmp_file_name, <<0xC3, 0xD4>>)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) =
-    file_stream.open_read_text(tmp_file_name, text_encoding.Latin1)
+    let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.unicode() |> file_stream.build(tmp_file_name)
 
   file_stream.read_chars(stream, 1)
   |> should.equal(Ok("Ã"))
@@ -353,8 +371,10 @@ pub fn read_latin1_test() {
 }
 
 pub fn write_latin1_test() {
-  let assert Ok(stream) =
-    file_stream.open_write_text(tmp_file_name, text_encoding.Latin1)
+
+    let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.write() |>
+  file_stream.latin1() |> file_stream.build(tmp_file_name)
 
   file_stream.write_chars(stream, "ÃÔ")
   |> should.equal(Ok(Nil))
@@ -365,8 +385,9 @@ pub fn write_latin1_test() {
   simplifile.read_bits(tmp_file_name)
   |> should.equal(Ok(<<0xC3, 0xD4>>))
 
-  let assert Ok(stream) =
-    file_stream.open_write_text(tmp_file_name, text_encoding.Latin1)
+    let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.write() |>
+  file_stream.latin1() |> file_stream.build(tmp_file_name)
 
   file_stream.write_chars(stream, "日本")
   |> should.equal(
@@ -387,11 +408,9 @@ pub fn read_utf16le_test() {
   simplifile.write_bits(tmp_file_name, <<0xE5, 0x65, 0x2C, 0x67, 0x9E, 0x8A>>)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) =
-    file_stream.open_read_text(
-      tmp_file_name,
-      text_encoding.Utf16(text_encoding.Little),
-    )
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.utf16_le() |> file_stream.build(tmp_file_name)
 
   file_stream.read_chars(stream, 2)
   |> should.equal(Ok("日本"))
@@ -407,11 +426,10 @@ pub fn read_utf16le_test() {
 }
 
 pub fn write_utf16le_test() {
-  let assert Ok(stream) =
-    file_stream.open_write_text(
-      tmp_file_name,
-      text_encoding.Utf16(text_encoding.Little),
-    )
+
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.write() |>
+  file_stream.utf16_le() |> file_stream.build(tmp_file_name)
 
   file_stream.write_chars(stream, "日本語")
   |> should.equal(Ok(Nil))
@@ -432,11 +450,9 @@ pub fn read_utf32be_test() {
   >>)
   |> should.equal(Ok(Nil))
 
-  let assert Ok(stream) =
-    file_stream.open_read_text(
-      tmp_file_name,
-      text_encoding.Utf32(text_encoding.Big),
-    )
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.read() |>
+  file_stream.utf32_be() |> file_stream.build(tmp_file_name)
 
   file_stream.read_chars(stream, 1)
   |> should.equal(Ok("𐍈"))
@@ -452,11 +468,10 @@ pub fn read_utf32be_test() {
 }
 
 pub fn write_utf32be_test() {
-  let assert Ok(stream) =
-    file_stream.open_write_text(
-      tmp_file_name,
-      text_encoding.Utf32(text_encoding.Big),
-    )
+
+  let assert Ok(stream)
+  = file_stream.new_builder() |> file_stream.write() |>
+  file_stream.utf32_be() |> file_stream.build(tmp_file_name)
 
   file_stream.write_chars(stream, "𐍈")
   |> should.equal(Ok(Nil))
