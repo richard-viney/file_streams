@@ -54,19 +54,18 @@ pub fn main() {
 
 If a text encoding is specified when opening a file stream it allows for
 reading and writing of characters and lines of text stored in that encoding.
-Open a text file stream using the `file_stream.open_read_text()` and
-`file_stream.open_write_text()`functions. The supported encodings are `Latin1`,
+To open a text file stream use the `file_stream.open_read_text()` and
+`file_stream.open_write_text()` functions. The supported encodings are `Latin1`,
 `Unicode` (UTF-8), `Utf16`, and `Utf32`. The default encoding is `Latin1`.
 
 File streams opened with a text encoding aren't compatible with the `Raw` file
-open mode that is used to significantly improve IO performance on Erlang.
-Specifying both `Raw` and `Encoding` when calling `file_stream.open()` returns
-`Error(Enotsup)`.
+open mode that significantly improves IO performance on Erlang. Specifying both
+`Raw` and `Encoding` when calling `file_stream.open()` returns `Error(Enotsup)`.
 
-Although a text encoding can't be specified with `Raw` mode,
-`file_stream.read_line()` and `file_stream.write_chars()` can still be used to
-work with UTF-8 data. This means that text encoded as UTF-8 can be handled with
-high performance in `Raw` mode.
+Although a text encoding can't be specified with `Raw` mode, the
+`file_stream.read_line()` and `file_stream.write_chars()` functions can still be
+used to work with UTF-8 data. This means that text encoded as UTF-8 can be
+handled with high performance in `Raw` mode.
 
 When a text encoding other than `Latin1` is specified, functions that read and
 write raw bytes and other binary data aren't supported and will return

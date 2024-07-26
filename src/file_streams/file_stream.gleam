@@ -37,11 +37,12 @@ pub fn open(
   filename: String,
   modes: List(FileOpenMode),
 ) -> Result(FileStream, FileStreamError) {
-  let is_raw = list.contains(modes, file_open_mode.Raw)
+  let is_raw = modes |> list.contains(file_open_mode.Raw)
 
   // Find the text encoding, if one was specified
   let encoding =
-    list.find_map(modes, fn(m) {
+    modes
+    |> list.find_map(fn(m) {
       case m {
         file_open_mode.Encoding(e) -> Ok(e)
         _ -> Error(Nil)
@@ -55,13 +56,13 @@ pub fn open(
     True, Some(_) -> Error(file_stream_error.Enotsup)
 
     True, None -> Ok(None)
-    False, _ -> Ok(option.or(encoding, Some(text_encoding.Latin1)))
+    False, _ -> Ok(encoding |> option.or(Some(text_encoding.Latin1)))
   }
   use encoding <- result.try(encoding)
 
   // Binary mode is forced on so the Erlang APIs return binaries rather than
   // lists
-  let mode = case list.contains(modes, file_open_mode.Binary) {
+  let mode = case modes |> list.contains(file_open_mode.Binary) {
     True -> modes
     False -> [file_open_mode.Binary, ..modes]
   }
@@ -87,11 +88,13 @@ fn erl_file_open(
 /// - `Raw`
 ///
 pub fn open_read(filename: String) -> Result(FileStream, FileStreamError) {
-  open(filename, [
+  let modes = [
     file_open_mode.Read,
     file_open_mode.ReadAhead(64 * 1024),
     file_open_mode.Raw,
-  ])
+  ]
+
+  open(filename, modes)
 }
 
 /// Opens a new file stream for reading encoded text from a file. If only
@@ -111,11 +114,13 @@ pub fn open_read_text(
   filename: String,
   encoding: TextEncoding,
 ) -> Result(FileStream, FileStreamError) {
-  open(filename, [
+  let modes = [
     file_open_mode.Read,
     file_open_mode.ReadAhead(64 * 1024),
     file_open_mode.Encoding(encoding),
-  ])
+  ]
+
+  open(filename, modes)
 }
 
 /// Opens a new file stream for writing to a file. Allows for efficient writing
@@ -128,11 +133,13 @@ pub fn open_read_text(
 /// - `Raw`
 ///
 pub fn open_write(filename: String) -> Result(FileStream, FileStreamError) {
-  open(filename, [
+  let modes = [
     file_open_mode.Write,
     file_open_mode.DelayedWrite(size: 64 * 1024, delay: 2000),
     file_open_mode.Raw,
-  ])
+  ]
+
+  open(filename, modes)
 }
 
 /// Opens a new file stream for writing encoded text to a file. If only writing
@@ -141,8 +148,8 @@ pub fn open_write(filename: String) -> Result(FileStream, FileStreamError) {
 ///
 /// The modes used are:
 ///
-/// - `Read`
-/// - `ReadAhead(size: 64 * 1024)`
+/// - `Write`
+/// - `DelayedWrite(size: 64 * 1024, delay: 2000)`
 /// - `Encoding(encoding)`
 ///
 /// The text encoding for a file stream can be changed with
@@ -152,11 +159,13 @@ pub fn open_write_text(
   filename: String,
   encoding: TextEncoding,
 ) -> Result(FileStream, FileStreamError) {
-  open(filename, [
+  let modes = [
     file_open_mode.Write,
     file_open_mode.DelayedWrite(size: 64 * 1024, delay: 2000),
     file_open_mode.Encoding(encoding),
-  ])
+  ]
+
+  open(filename, modes)
 }
 
 /// Closes an open file stream.

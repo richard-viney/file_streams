@@ -31,9 +31,9 @@ pub type TextEncoding {
 /// Endianness specifier used by the `Utf16` and `Utf32` text encodings.
 ///
 pub type Endianness {
-  /// Big endian. This is much less common than little endian.
+  /// Big endian.
   Big
 
-  /// Little endian. This is much more common than big endian.
+  /// Little endian. The most common endianness mode, use this if uncertain.
   Little
 }
