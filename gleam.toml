@@ -11,5 +11,5 @@ links = [
 gleam_stdlib = "~> 0.34 or ~> 1.0"
 
 [dev-dependencies]
-gleeunit = "~> 1.0"
-simplifile = "~> 1.4"
+gleeunit = "~> 1.2"
+simplifile = "~> 2.0"
