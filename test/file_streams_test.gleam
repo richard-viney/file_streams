@@ -512,3 +512,8 @@ pub fn set_encoding_test() {
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
 }
+
+pub fn describe_test() {
+  file_stream_error.describe(file_stream_error.Eacces)
+  |> should.equal("Permission denied")
+}
