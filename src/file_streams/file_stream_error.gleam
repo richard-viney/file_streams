@@ -162,3 +162,66 @@ pub type FileStreamError {
   /// UTF-8 text file.
   InvalidUnicode
 }
+
+/// Get a human-readable description of an error.
+/// ## Example
+/// ```gleam
+/// let assert "Permission denied" = describe_error(Eperm)
+/// ```
+///
+pub fn describe_error(error: FileStreamError) -> String {
+  // This function mimics the describe_error() pattern in the simplifile
+  // project (Apache 2.0 licensed): https://github.com/bcpeinhardt/simplifile
+  case error {
+    Eacces -> "Permission denied"
+    Eagain -> "Resource temporarily unavailable"
+    Ebadf -> "Bad file number"
+    Ebadmsg -> "Bad message"
+    Ebusy -> "File busy"
+    Edeadlk -> "Resource deadlock avoided"
+    Edeadlock -> "File locking deadlock error"
+    Edquot -> "Disk quota exceeded"
+    Eexist -> "File already exists"
+    Efault -> "Bad address in system call argument"
+    Efbig -> "File too large"
+    Eftype -> "Inappropriate file type or format"
+    Eintr -> "Interrupted system call"
+    Einval -> "Invalid argument"
+    Eio -> "I/O error"
+    Eisdir -> "Illegal operation on a directory"
+    Eloop -> "Too many levels of symbolic links"
+    Emfile -> "Too many open files"
+    Emlink -> "Too many links"
+    Emultihop -> "Multihop attempted"
+    Enametoolong -> "Filename too long"
+    Enfile -> "File table overflow"
+    Enobufs -> "No buffer space available"
+    Enodev -> "No such device"
+    Enolck -> "No locks available"
+    Enolink -> "Link has been severed"
+    Enoent -> "No such file or directory"
+    Enomem -> "Not enough memory"
+    Enospc -> "No space left on device"
+    Enosr -> "No stream resources"
+    Enostr -> "Not a stream"
+    Enosys -> "Function not implemented"
+    Enotblk -> "Block device required"
+    Enotdir -> "Not a directory"
+    Enotsup -> "Operation not supported"
+    Enxio -> "No such device or address"
+    Eopnotsupp -> "Operation not supported on socket"
+    Eoverflow -> "Value too large to be stored in data type"
+    Eperm -> "Permission denied due to file ownership"
+    Epipe -> "Broken pipe"
+    Erange -> "Result too large"
+    Erofs -> "Read-only file system"
+    Espipe -> "Invalid seek"
+    Esrch -> "No such process"
+    Estale -> "Stale remote file handle"
+    Etxtbsy -> "Text file busy"
+    Exdev -> "Cross-domain link"
+    Eof -> "End of file stream reached before data could be read"
+    NoTranslation(_from, _to) -> "Unable to convert encoding"
+    InvalidUnicode -> "Invalid bytes in unicode"
+  }
+}
