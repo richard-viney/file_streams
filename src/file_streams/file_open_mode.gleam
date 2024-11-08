@@ -39,6 +39,8 @@ pub type FileOpenMode {
   /// device for previously written data.
   /// [`file_stream.close()`](./file_stream.html#close) must be called again, as
   /// the file is still open.
+  /// 
+  /// This mode is ignored on the JavaScript target.
   DelayedWrite(size: Int, delay: Int)
 
   /// Makes the file stream perform automatic translation of text to and from
@@ -54,6 +56,8 @@ pub type FileOpenMode {
   ///
   /// The text encoding of an open file stream can be changed with
   /// [`file_stream.set_encoding()`](./file_stream.html#set_encoding) function.
+  /// 
+  /// This mode is not supported on the JavaScript target.
   Encoding(encoding: TextEncoding)
 
   /// The file is opened for writing. It is created if it does not exist. If the
@@ -64,6 +68,8 @@ pub type FileOpenMode {
   /// supporting `O_EXCL` properly, such as NFS. Do not depend on this option
   /// unless you know that the file system supports it (in general, local file
   /// systems are safe).
+  /// 
+  /// This mode is ignored on the JavaScript target.
   Exclusive
 
   /// Allows much faster access to a file, as no Erlang process is needed to
@@ -79,6 +85,8 @@ pub type FileOpenMode {
   /// - A remote Erlang file server cannot be used. The computer on which the
   ///   Erlang node is running must have access to the file system (directly or
   ///   through NFS).
+  /// 
+  /// This mode is ignored on the JavaScript target.
   Raw
 
   /// The file, which must exist, is opened for reading.
@@ -93,6 +101,8 @@ pub type FileOpenMode {
   /// If `file_stream.read_*` calls are for sizes not significantly less than
   /// `size` bytes, or are greater than `size` bytes, no performance gain can be
   /// expected.
+  /// 
+  /// This mode is ignored on the JavaScript target.
   ReadAhead(size: Int)
 
   /// The file is opened for writing. It is created if it does not exist. If the

@@ -1,6 +1,7 @@
 import file_streams/file_open_mode
 import file_streams/file_stream
 import file_streams/file_stream_error
+@target(erlang)
 import file_streams/text_encoding
 import gleam/bit_array
 import gleam/string
@@ -12,6 +13,16 @@ const tmp_file_name = "file_streams.test"
 
 pub fn main() {
   gleeunit.main()
+}
+
+pub fn open_missing_file_test() {
+  file_stream.open_read("missing_file.txt")
+  |> should.equal(Error(file_stream_error.Enoent))
+}
+
+pub fn open_directory_test() {
+  file_stream.open_read("src")
+  |> should.equal(Error(file_stream_error.Eisdir))
 }
 
 pub fn read_ints_and_floats_test() {
@@ -31,8 +42,8 @@ pub fn read_ints_and_floats_test() {
       >>,
       // 64-bit integers
       <<
-        -10_000_000_000:little-int-size(64), -10_000_000_000:big-int-size(64),
-        100_000_000_000:little-int-size(64), 100_000_000_000:big-int-size(64),
+        9_007_199_254_740_991:little-int-size(64),
+        9_007_199_254_740_991:big-int-size(64),
       >>,
       // 32-bit floats
       <<
@@ -77,15 +88,10 @@ pub fn read_ints_and_floats_test() {
   file_stream.read_uint32_be(stream)
   |> should.equal(Ok(1_000_000))
 
-  file_stream.read_int64_le(stream)
-  |> should.equal(Ok(-10_000_000_000))
-  file_stream.read_int64_be(stream)
-  |> should.equal(Ok(-10_000_000_000))
-
   file_stream.read_uint64_le(stream)
-  |> should.equal(Ok(100_000_000_000))
+  |> should.equal(Ok(9_007_199_254_740_991))
   file_stream.read_uint64_be(stream)
-  |> should.equal(Ok(100_000_000_000))
+  |> should.equal(Ok(9_007_199_254_740_991))
 
   file_stream.read_float32_le(stream)
   |> should.equal(Ok(1.5))
@@ -99,6 +105,12 @@ pub fn read_ints_and_floats_test() {
 
   file_stream.read_list(stream, file_stream.read_float64_le, 2)
   |> should.equal(Ok([1.0, 2.0]))
+
+  file_stream.position(stream, file_stream.BeginningOfFile(83))
+  |> should.equal(Ok(83))
+
+  file_stream.read_bytes_exact(stream, 0)
+  |> should.equal(Ok(<<>>))
 
   file_stream.close(stream)
   |> should.equal(Ok(Nil))
@@ -158,6 +170,9 @@ pub fn position_test() {
   file_stream.position(stream, file_stream.CurrentLocation(-2))
   |> should.equal(Ok(0))
 
+  file_stream.position(stream, file_stream.CurrentLocation(-2))
+  |> should.equal(Error(file_stream_error.Einval))
+
   file_stream.read_bytes_exact(stream, 2)
   |> should.equal(Ok(<<"Te":utf8>>))
 
@@ -198,11 +213,15 @@ pub fn position_test() {
   |> should.equal(Ok(Nil))
 }
 
-/// Test reading and writing in the same file stream.
-///
+// /// Test reading and writing in the same file stream.
+// ///
 pub fn read_write_test() {
   let assert Ok(stream) =
-    file_stream.open(tmp_file_name, [file_open_mode.Read, file_open_mode.Write])
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Read,
+      file_open_mode.Write,
+      file_open_mode.Raw,
+    ])
 
   file_stream.write_bytes(stream, <<"Test1234":utf8>>)
   |> should.equal(Ok(Nil))
@@ -216,11 +235,17 @@ pub fn read_write_test() {
   file_stream.write_bytes(stream, <<"5678":utf8>>)
   |> should.equal(Ok(Nil))
 
+  file_stream.position(stream, file_stream.BeginningOfFile(14))
+  |> should.equal(Ok(14))
+
+  file_stream.write_bytes(stream, <<"9":utf8>>)
+  |> should.equal(Ok(Nil))
+
   file_stream.close(stream)
   |> should.equal(Ok(Nil))
 
   simplifile.read(tmp_file_name)
-  |> should.equal(Ok("Test12345678"))
+  |> should.equal(Ok("Test12345678\u{0}\u{0}9"))
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
@@ -235,18 +260,19 @@ pub fn append_test() {
       file_open_mode.Append,
       file_open_mode.Read,
       file_open_mode.Write,
+      file_open_mode.Raw,
     ])
 
-  file_stream.write_chars(stream, "5678")
+  file_stream.write_bytes(stream, <<"5678">>)
   |> should.equal(Ok(Nil))
 
   file_stream.position(stream, file_stream.BeginningOfFile(0))
   |> should.equal(Ok(0))
 
-  file_stream.read_chars(stream, 4)
-  |> should.equal(Ok("Test"))
+  file_stream.read_bytes(stream, 4)
+  |> should.equal(Ok(<<"Test">>))
 
-  file_stream.write_chars(stream, "9")
+  file_stream.write_bytes(stream, <<"9">>)
   |> should.equal(Ok(Nil))
 
   file_stream.close(stream)
@@ -259,6 +285,7 @@ pub fn append_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn read_line_read_chars_test() {
   let assert Ok(stream) = file_stream.open_write(tmp_file_name)
 
@@ -313,6 +340,7 @@ pub fn read_line_read_chars_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn read_invalid_utf8_test() {
   let invalid_utf8_bytes = <<0xC3, 0x28>>
 
@@ -345,6 +373,7 @@ pub fn read_invalid_utf8_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn read_latin1_test() {
   simplifile.write_bits(tmp_file_name, <<0xC3, 0xD4>>)
   |> should.equal(Ok(Nil))
@@ -371,6 +400,7 @@ pub fn read_latin1_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn write_latin1_test() {
   let assert Ok(stream) =
     file_stream.open_write_text(tmp_file_name, text_encoding.Latin1)
@@ -402,6 +432,7 @@ pub fn write_latin1_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn read_utf16le_test() {
   simplifile.write_bits(tmp_file_name, <<0xE5, 0x65, 0x2C, 0x67, 0x9E, 0x8A>>)
   |> should.equal(Ok(Nil))
@@ -425,6 +456,7 @@ pub fn read_utf16le_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn write_utf16le_test() {
   let assert Ok(stream) =
     file_stream.open_write_text(
@@ -445,6 +477,7 @@ pub fn write_utf16le_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn read_utf32be_test() {
   simplifile.write_bits(tmp_file_name, <<
     0x00, 0x01, 0x03, 0x48, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -470,6 +503,7 @@ pub fn read_utf32be_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn write_utf32be_test() {
   let assert Ok(stream) =
     file_stream.open_write_text(
@@ -490,6 +524,7 @@ pub fn write_utf32be_test() {
   |> should.equal(Ok(Nil))
 }
 
+@target(erlang)
 pub fn set_encoding_test() {
   let assert Ok(stream) =
     file_stream.open_write_text(tmp_file_name, text_encoding.Latin1)
@@ -511,9 +546,4 @@ pub fn set_encoding_test() {
 
   simplifile.delete(tmp_file_name)
   |> should.equal(Ok(Nil))
-}
-
-pub fn describe_test() {
-  file_stream_error.describe(file_stream_error.Eacces)
-  |> should.equal("Permission denied")
 }

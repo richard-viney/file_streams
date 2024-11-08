@@ -1,12 +1,13 @@
 # Gleam File Streams
 
-This Gleam library provides access to Erlang's file streams for reading and
-writing files. If you don't require streaming behaviour then consider using
+This Gleam library provides access to file streams for reading and writing
+files. If you don't require streaming behavior then consider using
 [`simplifile`](https://hex.pm/packages/simplifile) instead.
 
 [![Package Version](https://img.shields.io/hexpm/v/file_streams)](https://hex.pm/packages/file_streams)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/file_streams/)
 ![Erlang Compatible](https://img.shields.io/badge/target-erlang-a90432)
+![JavaScript Compatible](https://img.shields.io/badge/target-javascript-f3e155)
 
 ## Usage
 
@@ -40,7 +41,8 @@ pub fn main() {
     file_stream.read_list(stream, file_stream.read_uint8, 2)
   let assert Error(file_stream_error.Eof) = file_stream.read_bytes(stream, 1)
 
-  // Reset file position to the start and read line by line
+  // Reset file position to the start and read line by line (not currently
+  // supported on JavaScript)
   let assert Ok(0) =
     file_stream.position(stream, file_stream.BeginningOfFile(0))
   let assert Ok("Hello!\n") = file_stream.read_line(stream)
@@ -51,6 +53,9 @@ pub fn main() {
 ```
 
 ### Working with Text Encodings
+
+> [!NOTE]
+> Text encodings are not currently supported on the JavaScript target.
 
 If a text encoding is specified when opening a file stream it allows for
 reading and writing of characters and lines of text stored in that encoding.

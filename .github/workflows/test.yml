@@ -20,11 +20,18 @@ jobs:
           gleam-version: "1.5.0"
           rebar3-version: "3"
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11
+
       - name: Install dependencies
         run: gleam deps download
 
       - name: Run tests
-        run: gleam test
+        run: |
+          gleam test --target erlang
+          gleam test --target javascript
 
       - name: Check code formatting
         run: gleam format --check src test

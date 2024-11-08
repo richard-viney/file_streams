@@ -1,4 +1,4 @@
--module(erl_file_streams).
+-module(file_streams_ffi).
 -export([io_get_line/1, io_get_chars/2, io_put_chars/2]).
 
 % Wraps io:get_line to return `{ok, Data}` on success instead of just `Data`

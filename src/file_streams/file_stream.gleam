@@ -1,7 +1,8 @@
-//// Work with Erlang file streams in Gleam.
+//// Work with file streams in Gleam.
 
 import file_streams/file_open_mode.{type FileOpenMode}
 import file_streams/file_stream_error.{type FileStreamError}
+import file_streams/internal/raw_location
 import file_streams/internal/raw_read_result.{type RawReadResult}
 import file_streams/internal/raw_result.{type RawResult}
 import file_streams/text_encoding.{type TextEncoding, Latin1}
@@ -52,7 +53,7 @@ pub fn open(
 
   let encoding = case is_raw, encoding {
     // Raw mode is not allowed when specifying a text encoding, as per the
-    // Erlang, so turn it into an explicit error
+    // Erlang docs, so turn it into an explicit error
     True, Some(_) -> Error(file_stream_error.Enotsup)
 
     True, None -> Ok(None)
@@ -67,13 +68,14 @@ pub fn open(
     False -> [file_open_mode.Binary, ..modes]
   }
 
-  use io_device <- result.try(erl_file_open(filename, mode))
+  use io_device <- result.try(do_open(filename, mode))
 
   Ok(FileStream(io_device, encoding))
 }
 
 @external(erlang, "file", "open")
-fn erl_file_open(
+@external(javascript, "../file_streams_ffi.mjs", "file_open")
+fn do_open(
   filename: String,
   mode: List(FileOpenMode),
 ) -> Result(IoDevice, FileStreamError)
@@ -109,6 +111,8 @@ pub fn open_read(filename: String) -> Result(FileStream, FileStreamError) {
 ///
 /// The text encoding for a file stream can be changed with
 /// [`set_encoding`](#set_encoding).
+///
+/// This function is not supported on the JavaScript target.
 ///
 pub fn open_read_text(
   filename: String,
@@ -155,6 +159,8 @@ pub fn open_write(filename: String) -> Result(FileStream, FileStreamError) {
 /// The text encoding for a file stream can be changed with
 /// [`set_encoding`](#set_encoding).
 ///
+/// This function is not supported on the JavaScript target.
+///
 pub fn open_write_text(
   filename: String,
   encoding: TextEncoding,
@@ -171,20 +177,23 @@ pub fn open_write_text(
 /// Closes an open file stream.
 ///
 pub fn close(stream: FileStream) -> Result(Nil, FileStreamError) {
-  case erl_file_close(stream.io_device) {
+  case file_close(stream.io_device) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "close")
-fn erl_file_close(io_device: IoDevice) -> RawResult
+@external(javascript, "../file_streams_ffi.mjs", "file_close")
+fn file_close(io_device: IoDevice) -> RawResult
 
 /// Changes the text encoding of a file stream from what was configured when it
 /// was opened. Returns a new [`FileStream`](#FileStream) that should be used
 /// for subsequent calls.
 ///
 /// This function is not supported for file streams opened in `Raw` mode.
+///
+/// This function is not supported on the JavaScript target.
 ///
 pub fn set_encoding(
   stream: FileStream,
@@ -194,14 +203,15 @@ pub fn set_encoding(
 
   let opts = [file_open_mode.Binary, file_open_mode.Encoding(encoding)]
 
-  case erl_io_setopts(stream.io_device, opts) {
+  case io_setopts(stream.io_device, opts) {
     raw_result.Ok -> Ok(FileStream(..stream, encoding: Some(encoding)))
     raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "io", "setopts")
-fn erl_io_setopts(io_device: IoDevice, opts: List(FileOpenMode)) -> RawResult
+@external(javascript, "../file_streams_ffi.mjs", "io_setopts")
+fn io_setopts(io_device: IoDevice, opts: List(FileOpenMode)) -> RawResult
 
 /// A file stream location defined relative to the beginning of the file,
 /// the end of the file, or the current position in the file stream. This type
@@ -234,24 +244,19 @@ pub fn position(
   location: FileStreamLocation,
 ) -> Result(Int, FileStreamError) {
   let location = case location {
-    BeginningOfFile(offset) -> Bof(offset)
-    CurrentLocation(offset) -> Cur(offset)
-    EndOfFile(offset) -> Eof(offset)
+    BeginningOfFile(offset) -> raw_location.Bof(offset)
+    CurrentLocation(offset) -> raw_location.Cur(offset)
+    EndOfFile(offset) -> raw_location.Eof(offset)
   }
 
-  erl_file_position(stream.io_device, location)
-}
-
-type ErlLocation {
-  Bof(offset: Int)
-  Cur(offset: Int)
-  Eof(offset: Int)
+  file_position(stream.io_device, location)
 }
 
 @external(erlang, "file", "position")
-fn erl_file_position(
+@external(javascript, "../file_streams_ffi.mjs", "file_position")
+fn file_position(
   io_device: IoDevice,
-  location: ErlLocation,
+  location: raw_location.Location,
 ) -> Result(Int, FileStreamError)
 
 /// Writes raw bytes to a file stream.
@@ -269,19 +274,22 @@ pub fn write_bytes(
     Error(file_stream_error.Enotsup),
   )
 
-  case erl_file_write(stream.io_device, bytes) {
+  case file_write(stream.io_device, bytes) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "write")
-fn erl_file_write(io_device: IoDevice, bytes: BitArray) -> RawResult
+@external(javascript, "../file_streams_ffi.mjs", "file_write")
+fn file_write(io_device: IoDevice, bytes: BitArray) -> RawResult
 
 /// Writes characters to a file stream. This will convert the characters to the
 /// text encoding specified when the file stream was opened.
 ///
 /// For file streams opened in `Raw` mode, this function always writes UTF-8.
+///
+/// This function is not supported on the JavaScript target.
 ///
 pub fn write_chars(
   stream: FileStream,
@@ -289,12 +297,13 @@ pub fn write_chars(
 ) -> Result(Nil, FileStreamError) {
   case stream.encoding {
     None -> chars |> bit_array.from_string |> write_bytes(stream, _)
-    Some(_) -> erl_io_put_chars(stream.io_device, chars)
+    Some(_) -> io_put_chars(stream.io_device, chars)
   }
 }
 
-@external(erlang, "erl_file_streams", "io_put_chars")
-fn erl_io_put_chars(
+@external(erlang, "file_streams_ffi", "io_put_chars")
+@external(javascript, "../file_streams_ffi.mjs", "io_put_chars")
+fn io_put_chars(
   io_device: IoDevice,
   char_data: String,
 ) -> Result(Nil, FileStreamError)
@@ -308,14 +317,15 @@ fn erl_io_put_chars(
 /// written data to the underlying device.
 ///
 pub fn sync(stream: FileStream) -> Result(Nil, FileStreamError) {
-  case erl_file_sync(stream.io_device) {
+  case file_sync(stream.io_device) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(e)
   }
 }
 
 @external(erlang, "file", "sync")
-fn erl_file_sync(io_device: IoDevice) -> RawResult
+@external(javascript, "../file_streams_ffi.mjs", "file_sync")
+fn file_sync(io_device: IoDevice) -> RawResult
 
 /// Reads bytes from a file stream. The returned number of bytes may be fewer
 /// than the number that was requested if the end of the file stream was
@@ -337,7 +347,7 @@ pub fn read_bytes(
     Error(file_stream_error.Enotsup),
   )
 
-  case erl_file_read(stream.io_device, byte_count) {
+  case file_read(stream.io_device, byte_count) {
     raw_read_result.Ok(bytes) -> Ok(bytes)
     raw_read_result.Eof -> Error(file_stream_error.Eof)
     raw_read_result.Error(e) -> Error(e)
@@ -345,10 +355,8 @@ pub fn read_bytes(
 }
 
 @external(erlang, "file", "read")
-fn erl_file_read(
-  io_device: IoDevice,
-  byte_count: Int,
-) -> RawReadResult(BitArray)
+@external(javascript, "../file_streams_ffi.mjs", "file_read")
+fn file_read(io_device: IoDevice, byte_count: Int) -> RawReadResult(BitArray)
 
 /// Reads the requested number of bytes from a file stream. If the requested
 /// number of bytes can't be read prior to reaching the end of the file stream
@@ -413,10 +421,12 @@ fn do_read_remaining_bytes(
 /// This function always reads UTF-8 for file streams opened in `Raw` mode.
 /// Otherwise, it uses the text encoding specified when the file was opened.
 ///
+/// This function is not supported on the JavaScript target.
+///
 pub fn read_line(stream: FileStream) -> Result(String, FileStreamError) {
   case stream.encoding {
     None ->
-      case erl_file_read_line(stream.io_device) {
+      case file_read_line(stream.io_device) {
         raw_read_result.Ok(data) ->
           data
           |> bit_array.to_string
@@ -427,7 +437,7 @@ pub fn read_line(stream: FileStream) -> Result(String, FileStreamError) {
       }
 
     Some(_) ->
-      case erl_io_get_line(stream.io_device) {
+      case io_get_line(stream.io_device) {
         raw_read_result.Ok(data) -> Ok(data)
         raw_read_result.Eof -> Error(file_stream_error.Eof)
         raw_read_result.Error(e) -> Error(e)
@@ -435,11 +445,13 @@ pub fn read_line(stream: FileStream) -> Result(String, FileStreamError) {
   }
 }
 
-@external(erlang, "erl_file_streams", "io_get_line")
-fn erl_io_get_line(io_device: IoDevice) -> RawReadResult(String)
+@external(erlang, "file_streams_ffi", "io_get_line")
+@external(javascript, "../file_streams_ffi.mjs", "io_get_line")
+fn io_get_line(io_device: IoDevice) -> RawReadResult(String)
 
 @external(erlang, "file", "read_line")
-fn erl_file_read_line(io_device: IoDevice) -> RawReadResult(BitArray)
+@external(javascript, "../file_streams_ffi.mjs", "file_read_line")
+fn file_read_line(io_device: IoDevice) -> RawReadResult(BitArray)
 
 /// Reads the next `count` characters from a file stream. The returned number of
 /// characters may be fewer than the number that was requested if the end of the
@@ -448,13 +460,15 @@ fn erl_file_read_line(io_device: IoDevice) -> RawReadResult(BitArray)
 /// This function is not supported for file streams opened in `Raw` mode. Use
 /// the [`read_line()`](#read_line) function instead.
 ///
+/// This function is not supported on the JavaScript target.
+///
 pub fn read_chars(
   stream: FileStream,
   count: Int,
 ) -> Result(String, FileStreamError) {
   case stream.encoding {
     Some(_) ->
-      case erl_io_get_chars(stream.io_device, count) {
+      case io_get_chars(stream.io_device, count) {
         raw_read_result.Ok(data) -> Ok(data)
         raw_read_result.Eof -> Error(file_stream_error.Eof)
         raw_read_result.Error(e) -> Error(e)
@@ -464,8 +478,9 @@ pub fn read_chars(
   }
 }
 
-@external(erlang, "erl_file_streams", "io_get_chars")
-fn erl_io_get_chars(io_device: IoDevice, count: Int) -> RawReadResult(String)
+@external(erlang, "file_streams_ffi", "io_get_chars")
+@external(javascript, "../file_streams_ffi.mjs", "io_get_chars")
+fn io_get_chars(io_device: IoDevice, count: Int) -> RawReadResult(String)
 
 /// Reads an 8-bit signed integer from a file stream.
 ///
