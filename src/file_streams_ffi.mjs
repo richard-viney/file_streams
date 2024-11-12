@@ -6,7 +6,7 @@ import {
   readSync,
   statSync,
   writeSync,
-} from "fs";
+} from "node:fs";
 import { BitArray, Ok, Error } from "./gleam.mjs";
 import * as file_open_mode from "./file_streams/file_open_mode.mjs";
 import * as raw_location from "./file_streams/internal/raw_location.mjs";
@@ -34,7 +34,9 @@ export function file_open(filename, mode) {
     mode = mode.toArray();
     let mode_read = mode.some((mode) => mode instanceof file_open_mode.Read);
     let mode_write = mode.some((mode) => mode instanceof file_open_mode.Write);
-    let mode_append = mode.some((mode) => mode instanceof file_open_mode.Append);
+    let mode_append = mode.some(
+      (mode) => mode instanceof file_open_mode.Append
+    );
 
     // Append implies write
     mode_write ||= mode_append;
@@ -89,7 +91,7 @@ export function file_read(io_device, byte_count) {
     }
 
     // Read bytes at the current position
-    const buffer = Buffer.alloc(byte_count, 255);
+    let buffer = new Uint8Array(byte_count);
     const bytes_read = readSync(
       io_device.fd,
       buffer,
@@ -107,8 +109,11 @@ export function file_read(io_device, byte_count) {
     }
 
     // Convert result to a BitArray
-    const bytes = new Uint8Array(buffer.buffer, 0, bytes_read);
-    const bit_array = new BitArray(bytes);
+    let final_buffer = buffer;
+    if (bytes_read < byte_count) {
+      final_buffer = buffer.slice(0, bytes_read);
+    }
+    const bit_array = new BitArray(final_buffer);
 
     return new raw_read_result.Ok(bit_array);
   } catch (e) {
@@ -118,7 +123,9 @@ export function file_read(io_device, byte_count) {
 
 export function file_write(io_device, data) {
   try {
-    const position = io_device.mode_append ? io_device.size : io_device.position;
+    const position = io_device.mode_append
+      ? io_device.size
+      : io_device.position;
 
     // Write data to the file
     const bytes_written = writeSync(

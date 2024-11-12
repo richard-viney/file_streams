@@ -213,8 +213,8 @@ pub fn position_test() {
   |> should.equal(Ok(Nil))
 }
 
-// /// Test reading and writing in the same file stream.
-// ///
+/// Test reading and writing in the same file stream.
+///
 pub fn read_write_test() {
   let assert Ok(stream) =
     file_stream.open(tmp_file_name, [

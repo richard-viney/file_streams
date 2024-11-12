@@ -13,3 +13,6 @@ gleam_stdlib = ">= 0.41.0 and < 2.0.0"
 [dev-dependencies]
 gleeunit = ">= 1.2.0 and < 2.0.0"
 simplifile = ">= 2.0.1 and < 3.0.0"
+
+[javascript]
+deno = { allow_read = true, allow_write = true }
