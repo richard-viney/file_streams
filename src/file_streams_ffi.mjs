@@ -18,9 +18,10 @@ export function file_open(filename, mode) {
   try {
     let size = 0;
 
-    // Return an error if the filename is a directory
     try {
       const stats = statSync(filename);
+
+      // Return an error if the filename is a directory
       if (stats.isDirectory()) {
         return new Error(new file_stream_error.Eisdir());
       }
@@ -136,7 +137,7 @@ export function file_write(io_device, data) {
       position
     );
 
-    // Update the file's size and position depending on the mode it was opened
+    // Update the file's size and position depending if it is in append mode
     if (io_device.mode_append) {
       io_device.size += bytes_written;
     } else {
@@ -255,6 +256,8 @@ function map_error(error) {
       return new file_stream_error.Eio();
     case "ENFILE":
       return new file_stream_error.Enfile();
+    case undefined:
+      throw `Undefined error code for error: ${error}`;
     default:
       throw `Unrecognized error code: ${error.code}`;
   }
