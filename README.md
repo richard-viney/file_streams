@@ -8,6 +8,7 @@ files. If you don't require streaming behavior then consider using
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/file_streams/)
 ![Erlang Compatible](https://img.shields.io/badge/target-erlang-a90432)
 ![JavaScript Compatible](https://img.shields.io/badge/target-javascript-f3e155)
+[![Semantic Release](https://img.shields.io/badge/semantic--release-conventionalcommits-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
 ## Usage
 

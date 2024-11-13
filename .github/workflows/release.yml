@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    branches: main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup BEAM
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.1.0"
+          gleam-version: "1.5.0"
+          rebar3-version: "3"
+
+      - name: Wait for tests to complete
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-regexp: Test
+
+      - name: Semantic release
+        id: semantic-release
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          extra_plugins: conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to Hex package manager
+        if: steps.semantic-release.outputs.new_release_published == 'true'
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+        run: |
+          echo 'version = "${{ steps.semantic-release.outputs.new_release_version }}"' | cat - gleam.toml > gleam.toml.new
+          mv gleam.toml.new gleam.toml
+          gleam publish --yes
