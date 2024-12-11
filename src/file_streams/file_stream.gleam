@@ -274,6 +274,12 @@ pub fn write_bytes(
     Error(file_stream_error.Enotsup),
   )
 
+  // Check that the bit array contains a whole number of bytes
+  use <- bool.guard(
+    bit_array.bit_size(bytes) % 8 != 0,
+    Error(file_stream_error.Einval),
+  )
+
   case file_write(stream.io_device, bytes) {
     raw_result.Ok -> Ok(Nil)
     raw_result.Error(e) -> Error(e)
