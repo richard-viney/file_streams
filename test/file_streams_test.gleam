@@ -548,7 +548,6 @@ pub fn set_encoding_test() {
   |> should.equal(Ok(Nil))
 }
 
-@target(erlang)
 pub fn write_partial_bytes_test() {
   let assert Ok(stream) = file_stream.open_write(tmp_file_name)
 

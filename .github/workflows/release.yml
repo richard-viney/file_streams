@@ -22,7 +22,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: 27.2
-          gleam-version: 1.8.0
+          gleam-version: 1.9.1
 
       - name: Wait for tests to complete
         uses: lewagon/wait-on-check-action@v1.3.4

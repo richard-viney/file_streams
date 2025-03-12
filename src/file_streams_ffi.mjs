@@ -123,17 +123,29 @@ export function file_read(io_device, byte_count) {
 }
 
 export function file_write(io_device, data) {
+  if (data.bitSize % 8 !== 0) {
+    return new raw_result.Error(file_stream_error.Einval());
+  }
+
   try {
     const position = io_device.mode_append
       ? io_device.size
       : io_device.position;
 
+    let buffer = data.rawBuffer;
+    if (data.bitOffset !== 0) {
+      buffer = new Uint8Array(data.byteSize);
+      for (let i = 0; i < data.byteSize; i++) {
+        buffer[i] = data.byteAt(i);
+      }
+    }
+
     // Write data to the file
     const bytes_written = writeSync(
       io_device.fd,
-      data.buffer,
+      buffer,
       0,
-      data.length,
+      buffer.length,
       position
     );
 
@@ -148,7 +160,7 @@ export function file_write(io_device, data) {
     }
 
     // Check for an incomplete write
-    if (bytes_written !== data.length) {
+    if (bytes_written !== data.byteSize) {
       return new raw_result.Error(new file_stream_error.Enospc());
     }
 
