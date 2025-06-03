@@ -1,6 +1,6 @@
 name = "file_streams"
 description = "Gleam library for working with file streams."
-gleam = ">= 1.9.0"
+gleam = ">= 1.11.0"
 licences = ["MIT"]
 repository = { type = "github", user = "richard-viney", repo = "file_streams" }
 links = [
@@ -8,10 +8,10 @@ links = [
 ]
 
 [dependencies]
-gleam_stdlib = ">= 0.57.0 and < 2.0.0"
+gleam_stdlib = ">= 0.60.0 and < 2.0.0"
 
 [dev-dependencies]
-gleeunit = ">= 1.3.0 and < 2.0.0"
+gleeunit = ">= 1.3.1 and < 2.0.0"
 simplifile = ">= 2.2.0 and < 3.0.0"
 
 [javascript]

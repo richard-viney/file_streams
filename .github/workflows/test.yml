@@ -12,23 +12,23 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup BEAM
         uses: erlef/setup-beam@v1
         with:
-          otp-version: 27.2
-          gleam-version: 1.9.1
+          otp-version: 28.0
+          gleam-version: 1.11.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.13
+          node-version: 22.16
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: 2.1
+          deno-version: 2.3
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
