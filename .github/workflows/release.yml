@@ -22,8 +22,8 @@ jobs:
       - name: Setup BEAM
         uses: erlef/setup-beam@v1
         with:
-          otp-version: 28.0
-          gleam-version: 1.11.0
+          otp-version: 28.1
+          gleam-version: 1.13.0
 
       - name: Wait for tests to complete
         uses: lewagon/wait-on-check-action@v1.3.4

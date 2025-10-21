@@ -7,12 +7,41 @@ import {
   statSync,
   writeSync,
 } from "node:fs";
-import { BitArray, Ok, Error } from "./gleam.mjs";
-import * as file_open_mode from "./file_streams/file_open_mode.mjs";
-import * as raw_location from "./file_streams/internal/raw_location.mjs";
+import { BitArray$BitArray, Result$Ok, Result$Error } from "./gleam.mjs";
+import {
+  FileOpenMode$isAppend,
+  FileOpenMode$isEncoding,
+  FileOpenMode$isRead,
+  FileOpenMode$isWrite,
+} from "./file_streams/file_open_mode.mjs";
+import {
+  Location$isCur,
+  Location$isEof,
+} from "./file_streams/internal/raw_location.mjs";
 import * as raw_result from "./file_streams/internal/raw_result.mjs";
-import * as raw_read_result from "./file_streams/internal/raw_read_result.mjs";
-import * as file_stream_error from "./file_streams/file_stream_error.mjs";
+import {
+  RawReadResult$Eof,
+  RawReadResult$Error,
+  RawReadResult$Ok,
+} from "./file_streams/internal/raw_read_result.mjs";
+import {
+  FileStreamError$Eacces,
+  FileStreamError$Ebadf,
+  FileStreamError$Eexist,
+  FileStreamError$Einval,
+  FileStreamError$Eio,
+  FileStreamError$Eisdir,
+  FileStreamError$Emfile,
+  FileStreamError$Enfile,
+  FileStreamError$Enodev,
+  FileStreamError$Enoent,
+  FileStreamError$Enospc,
+  FileStreamError$Enotdir,
+  FileStreamError$Enotsup,
+  FileStreamError$Eperm,
+  FileStreamError$Erofs,
+  FileStreamError$Etxtbsy,
+} from "./file_streams/file_stream_error.mjs";
 
 export function file_open(filename, mode) {
   try {
@@ -23,7 +52,7 @@ export function file_open(filename, mode) {
 
       // Return an error if the filename is a directory
       if (stats.isDirectory()) {
-        return new Error(new file_stream_error.Eisdir());
+        return Result$Error(FileStreamError$Eisdir());
       }
 
       // Store size of the file if it exists so that seeks done relative to the
@@ -33,11 +62,9 @@ export function file_open(filename, mode) {
 
     // Read relevant settings from the mode
     mode = mode.toArray();
-    let mode_read = mode.some((mode) => mode instanceof file_open_mode.Read);
-    let mode_write = mode.some((mode) => mode instanceof file_open_mode.Write);
-    let mode_append = mode.some(
-      (mode) => mode instanceof file_open_mode.Append
-    );
+    let mode_read = mode.some((mode) => FileOpenMode$isRead(mode));
+    let mode_write = mode.some((mode) => FileOpenMode$isWrite(mode));
+    let mode_append = mode.some((mode) => FileOpenMode$isAppend(mode));
 
     // Append implies write
     mode_write ||= mode_append;
@@ -48,8 +75,8 @@ export function file_open(filename, mode) {
     }
 
     // Text encodings are not supported on JavaScript
-    if (mode.some((mode) => mode instanceof file_open_mode.Encoding)) {
-      return new Error(new file_stream_error.Enotsup());
+    if (mode.some(FileOpenMode$isEncoding)) {
+      return Result$Error(FileStreamError$Enotsup());
     }
 
     // Determine the mode string
@@ -78,9 +105,9 @@ export function file_open(filename, mode) {
       mode_append,
     };
 
-    return new Ok(io_device);
+    return Result$Ok(io_device);
   } catch (e) {
-    return new Error(map_error(e));
+    return Result$Error(map_error(e));
   }
 }
 
@@ -88,7 +115,7 @@ export function file_read(io_device, byte_count) {
   try {
     // Reading zero bytes always succeeds
     if (byte_count === 0) {
-      return new raw_read_result.Ok(new BitArray(new Uint8Array()));
+      return RawReadResult$Ok(BitArray$BitArray(new Uint8Array()));
     }
 
     // Read bytes at the current position
@@ -98,7 +125,7 @@ export function file_read(io_device, byte_count) {
       buffer,
       0,
       byte_count,
-      io_device.position
+      io_device.position,
     );
 
     // Advance the current position
@@ -106,7 +133,7 @@ export function file_read(io_device, byte_count) {
 
     // Return eof if nothing was read
     if (bytes_read === 0) {
-      return new raw_read_result.Eof();
+      return RawReadResult$Eof();
     }
 
     // Convert result to a BitArray
@@ -114,17 +141,17 @@ export function file_read(io_device, byte_count) {
     if (bytes_read < byte_count) {
       final_buffer = buffer.slice(0, bytes_read);
     }
-    const bit_array = new BitArray(final_buffer);
+    const bit_array = BitArray$BitArray(final_buffer);
 
-    return new raw_read_result.Ok(bit_array);
+    return RawReadResult$Ok(bit_array);
   } catch (e) {
-    return new raw_read_result.Error(map_error(e));
+    return RawReadResult$Error(map_error(e));
   }
 }
 
 export function file_write(io_device, data) {
   if (data.bitSize % 8 !== 0) {
-    return new raw_result.Error(file_stream_error.Einval());
+    return new raw_result.Error(FileStreamError$Einval());
   }
 
   try {
@@ -146,7 +173,7 @@ export function file_write(io_device, data) {
       buffer,
       0,
       buffer.length,
-      position
+      position,
     );
 
     // Update the file's size and position depending if it is in append mode
@@ -161,7 +188,7 @@ export function file_write(io_device, data) {
 
     // Check for an incomplete write
     if (bytes_written !== data.byteSize) {
-      return new raw_result.Error(new file_stream_error.Enospc());
+      return new raw_result.Error(FileStreamError$Enospc());
     }
 
     return new raw_result.Ok();
@@ -184,28 +211,28 @@ export function file_close(io_device) {
 
 export function file_position(io_device, location) {
   let new_position = location.offset;
-  if (location instanceof raw_location.Eof) {
+  if (Location$isEof(location)) {
     new_position += io_device.size;
-  } else if (location instanceof raw_location.Cur) {
+  } else if (Location$isCur(location)) {
     new_position += io_device.position;
   }
 
   if (new_position < 0) {
-    return new Error(new file_stream_error.Einval());
+    return Result$Error(FileStreamError$Einval());
   }
 
   io_device.position = new_position;
 
-  return new Ok(io_device.position);
+  return Result$Ok(io_device.position);
 }
 
 export function file_sync(io_device) {
   try {
     fsyncSync(io_device.fd);
 
-    return new Ok(undefined);
+    return Result$Ok(undefined);
   } catch (e) {
-    return new Error(map_error(e));
+    return Result$Error(map_error(e));
   }
 }
 
@@ -215,59 +242,59 @@ export function file_sync(io_device) {
 //
 
 export function file_read_line(_io_device) {
-  return new raw_read_result.Error(new file_stream_error.Enotsup());
+  return RawReadResult$Error(FileStreamError$Enotsup());
 }
 
 export function io_get_line(_io_device) {
-  return new raw_read_result.Error(new file_stream_error.Enotsup());
+  return RawReadResult$Error(FileStreamError$Enotsup());
 }
 
 export function io_get_chars(_io_device, _char_data) {
-  return new raw_read_result.Error(new file_stream_error.Enotsup());
+  return RawReadResult$Error(FileStreamError$Enotsup());
 }
 
 export function io_put_chars(_io_device, _char_data) {
-  return new Error(new file_stream_error.Enotsup());
+  return Result$Error(FileStreamError$Enotsup());
 }
 
 export function io_setopts(_io_device) {
-  return new raw_result.Error(new file_stream_error.Enotsup());
+  return new raw_result.Error(FileStreamError$Enotsup());
 }
 
 function map_error(error) {
   switch (error.code) {
     case "EACCES":
-      return new file_stream_error.Eacces();
+      return FileStreamError$Eacces();
     case "EBADF":
-      return new file_stream_error.Ebadf();
+      return FileStreamError$Ebadf();
     case "EEXIST":
-      return new file_stream_error.Eexist();
+      return FileStreamError$Eexist();
     case "EISDIR":
-      return new file_stream_error.Eisdir();
+      return FileStreamError$Eisdir();
     case "EMFILE":
-      return new file_stream_error.Emfile();
+      return FileStreamError$Emfile();
     case "ENOENT":
-      return new file_stream_error.Enoent();
+      return FileStreamError$Enoent();
     case "ENOTDIR":
-      return new file_stream_error.Enotdir();
+      return FileStreamError$Enotdir();
     case "ENOSPC":
-      return new file_stream_error.Enospc();
+      return FileStreamError$Enospc();
     case "EPERM":
-      return new file_stream_error.Eperm();
+      return FileStreamError$Eperm();
     case "EROFS":
-      return new file_stream_error.Erofs();
+      return FileStreamError$Erofs();
     case "EIO":
-      return new file_stream_error.Eio();
+      return FileStreamError$Eio();
     case "ENODEV":
-      return new file_stream_error.Enodev();
+      return FileStreamError$Enodev();
     case "ETXTBSY":
-      return new file_stream_error.Etxtbsy();
+      return FileStreamError$Etxtbsy();
     case "EINVAL":
-      return new file_stream_error.Einval();
+      return FileStreamError$Einval();
     case "EIO":
-      return new file_stream_error.Eio();
+      return FileStreamError$Eio();
     case "ENFILE":
-      return new file_stream_error.Enfile();
+      return FileStreamError$Enfile();
     case undefined:
       throw `Undefined error code for error: ${error}`;
     default:
