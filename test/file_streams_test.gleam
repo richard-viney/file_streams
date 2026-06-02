@@ -425,3 +425,33 @@ pub fn file_info_test() {
   assert file_stream.close(stream) == Ok(Nil)
   assert simplifile.delete(tmp_file_name) == Ok(Nil)
 }
+
+pub fn truncate_test() {
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Write,
+      file_open_mode.Raw,
+    ])
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.type_ == option.Some(file_type.Regular)
+  assert info.size == option.Some(0)
+
+  // grow
+  let file_size = 4096
+  assert file_stream.position(stream, file_stream.BeginningOfFile(file_size)) == Ok(file_size)
+  assert file_stream.truncate(stream) == Ok(Nil)
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.size == option.Some(file_size)
+
+  // shrink
+  assert file_stream.position(stream, file_stream.BeginningOfFile(0)) == Ok(0)
+  assert file_stream.truncate(stream) == Ok(Nil)
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.size == option.Some(0)
+
+  assert file_stream.close(stream) == Ok(Nil)
+  assert simplifile.delete(tmp_file_name) == Ok(Nil)
+}

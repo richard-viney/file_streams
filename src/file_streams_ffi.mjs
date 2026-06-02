@@ -3,6 +3,7 @@ import {
   existsSync,
   fstatSync,
   fsyncSync,
+  ftruncateSync,
   openSync,
   readSync,
   statSync,
@@ -301,6 +302,16 @@ export function file_read_file_info(io_device) {
 export function file_sync(io_device) {
   try {
     fsyncSync(io_device.fd);
+
+    return new raw_result.Ok();
+  } catch (e) {
+    return new raw_result.Error(map_error(e));
+  }
+}
+
+export function file_truncate(io_device) {
+  try {
+    ftruncateSync(io_device.fd, io_device.position);
 
     return new raw_result.Ok();
   } catch (e) {

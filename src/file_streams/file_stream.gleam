@@ -396,6 +396,19 @@ fn file_read_file_info(
   FileStreamError,
 )
 
+/// Truncates a file stream that was opened for writing at the current position.
+///
+pub fn truncate(stream: FileStream) -> Result(Nil, FileStreamError) {
+  case file_truncate(stream.io_device) {
+    raw_result.Ok -> Ok(Nil)
+    raw_result.Error(e) -> Error(e)
+  }
+}
+
+@external(erlang, "file", "truncate")
+@external(javascript, "../file_streams_ffi.mjs", "file_truncate")
+fn file_truncate(io_device: IoDevice) -> RawResult
+
 /// Reads bytes from a file stream. The returned number of bytes may be fewer
 /// than the number that was requested if the end of the file stream was
 /// reached.
