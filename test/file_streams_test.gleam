@@ -1,9 +1,11 @@
 import file_streams/file_open_mode
 import file_streams/file_stream
 import file_streams/file_stream_error
+import file_streams/file_type
 @target(erlang)
 import file_streams/text_encoding
 import gleam/bit_array
+import gleam/option
 import gleam/string
 import gleeunit
 import simplifile
@@ -401,6 +403,24 @@ pub fn sync_test() {
     ])
 
   assert file_stream.sync(stream) == Ok(Nil)
+
+  assert file_stream.close(stream) == Ok(Nil)
+  assert simplifile.delete(tmp_file_name) == Ok(Nil)
+}
+
+pub fn file_info_test() {
+  let message = "Test1234"
+  assert simplifile.write(tmp_file_name, message) == Ok(Nil)
+
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Read,
+      file_open_mode.Raw,
+    ])
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.type_ == option.Some(file_type.Regular)
+  assert info.size == option.Some(string.length(message))
 
   assert file_stream.close(stream) == Ok(Nil)
   assert simplifile.delete(tmp_file_name) == Ok(Nil)
