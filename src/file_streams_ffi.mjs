@@ -291,8 +291,6 @@ function map_error(error) {
       return FileStreamError$Etxtbsy();
     case "EINVAL":
       return FileStreamError$Einval();
-    case "EIO":
-      return FileStreamError$Eio();
     case "ENFILE":
       return FileStreamError$Enfile();
     case undefined:
