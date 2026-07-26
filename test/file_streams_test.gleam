@@ -392,3 +392,16 @@ pub fn write_partial_bytes_test() {
   assert file_stream.close(stream) == Ok(Nil)
   assert simplifile.delete(tmp_file_name) == Ok(Nil)
 }
+
+pub fn sync_test() {
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Write,
+      file_open_mode.Raw,
+    ])
+
+  assert file_stream.sync(stream) == Ok(Nil)
+
+  assert file_stream.close(stream) == Ok(Nil)
+  assert simplifile.delete(tmp_file_name) == Ok(Nil)
+}

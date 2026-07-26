@@ -230,9 +230,9 @@ export function file_sync(io_device) {
   try {
     fsyncSync(io_device.fd);
 
-    return Result$Ok(undefined);
+    return new raw_result.Ok();
   } catch (e) {
-    return Result$Error(map_error(e));
+    return new raw_result.Error(map_error(e));
   }
 }
 
