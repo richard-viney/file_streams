@@ -1,19 +1,36 @@
 import {
   closeSync,
   existsSync,
+  fstatSync,
   fsyncSync,
+  ftruncateSync,
   openSync,
   readSync,
   statSync,
   writeSync,
+  constants,
 } from "node:fs";
 import { BitArray$BitArray, Result$Ok, Result$Error } from "./gleam.mjs";
+import { Option$Some } from "../gleam_stdlib/gleam/option.mjs";
+import {
+  FileAccess$Read,
+  FileAccess$Write,
+  FileAccess$ReadWrite,
+  FileAccess$None,
+} from "./file_streams/file_access.mjs";
 import {
   FileOpenMode$isAppend,
   FileOpenMode$isEncoding,
   FileOpenMode$isRead,
   FileOpenMode$isWrite,
 } from "./file_streams/file_open_mode.mjs";
+import {
+  FileType$Device,
+  FileType$Directory,
+  FileType$Other,
+  FileType$Regular,
+  FileType$Symlink,
+} from "./file_streams/file_type.mjs";
 import {
   Location$isCur,
   Location$isEof,
@@ -226,13 +243,79 @@ export function file_position(io_device, location) {
   return Result$Ok(io_device.position);
 }
 
+function check_type(stats) {
+  if (stats.isBlockDevice() || stats.isCharacterDevice())
+    return FileType$Device();
+  if (stats.isDirectory()) return FileType$Directory();
+  if (stats.isFile()) return FileType$Regular();
+  if (stats.isSymbolicLink()) return FileType$Symlink();
+  return FileType$Other();
+}
+
+function check_access(stats) {
+  let read, write;
+
+  let { S_IRUSR, S_IWUSR, S_IRGRP, S_IWGRP, S_IROTH, S_IWOTH } = constants;
+  let mode = stats.mode;
+
+  if (stats.uid === process.geteuid()) {
+    read = (mode & S_IRUSR) !== 0;
+    write = (mode & S_IWUSR) !== 0;
+  } else if (stats.gid == process.getegid()) {
+    read = (mode & S_IRGRP) !== 0;
+    write = (mode & S_IWGRP) !== 0;
+  } else {
+    read = (mode & S_IROTH) !== 0;
+    write = (mode & S_IWOTH) !== 0;
+  }
+
+  if (read && write) return FileAccess$ReadWrite();
+  if (read) return FileAccess$Read();
+  if (write) return FileAccess$Write();
+  return FileAccess$None();
+}
+
+export function file_read_file_info(io_device) {
+  try {
+    let stats = fstatSync(io_device.fd);
+
+    return Result$Ok([
+      Option$Some(stats.size),
+      Option$Some(check_type(stats)),
+      Option$Some(check_access(stats)),
+      Option$Some(stats.atimeMs / 1000),
+      Option$Some(stats.mtimeMs / 1000),
+      Option$Some(stats.ctimeMs / 1000),
+      Option$Some(stats.mode),
+      Option$Some(stats.nlink),
+      Option$Some(stats.dev),
+      Option$Some(stats.rdev),
+      Option$Some(stats.ino),
+      Option$Some(stats.uid),
+      Option$Some(stats.gid)
+    ]);
+  } catch (e) {
+    return Result$Error(map_error(e));
+  }
+}
+
 export function file_sync(io_device) {
   try {
     fsyncSync(io_device.fd);
 
-    return Result$Ok(undefined);
+    return new raw_result.Ok();
   } catch (e) {
-    return Result$Error(map_error(e));
+    return new raw_result.Error(map_error(e));
+  }
+}
+
+export function file_truncate(io_device) {
+  try {
+    ftruncateSync(io_device.fd, io_device.position);
+
+    return new raw_result.Ok();
+  } catch (e) {
+    return new raw_result.Error(map_error(e));
   }
 }
 
@@ -291,8 +374,6 @@ function map_error(error) {
       return FileStreamError$Etxtbsy();
     case "EINVAL":
       return FileStreamError$Einval();
-    case "EIO":
-      return FileStreamError$Eio();
     case "ENFILE":
       return FileStreamError$Enfile();
     case undefined:

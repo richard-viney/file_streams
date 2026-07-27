@@ -1,9 +1,11 @@
 import file_streams/file_open_mode
 import file_streams/file_stream
 import file_streams/file_stream_error
+import file_streams/file_type
 @target(erlang)
 import file_streams/text_encoding
 import gleam/bit_array
+import gleam/option
 import gleam/string
 import gleeunit
 import simplifile
@@ -388,6 +390,67 @@ pub fn write_partial_bytes_test() {
 
   assert file_stream.write_bytes(stream, <<"A", 0:7>>)
     == Error(file_stream_error.Einval)
+
+  assert file_stream.close(stream) == Ok(Nil)
+  assert simplifile.delete(tmp_file_name) == Ok(Nil)
+}
+
+pub fn sync_test() {
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Write,
+      file_open_mode.Raw,
+    ])
+
+  assert file_stream.sync(stream) == Ok(Nil)
+
+  assert file_stream.close(stream) == Ok(Nil)
+  assert simplifile.delete(tmp_file_name) == Ok(Nil)
+}
+
+pub fn file_info_test() {
+  let message = "Test1234"
+  assert simplifile.write(tmp_file_name, message) == Ok(Nil)
+
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Read,
+      file_open_mode.Raw,
+    ])
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.type_ == option.Some(file_type.Regular)
+  assert info.size == option.Some(string.length(message))
+
+  assert file_stream.close(stream) == Ok(Nil)
+  assert simplifile.delete(tmp_file_name) == Ok(Nil)
+}
+
+pub fn truncate_test() {
+  let assert Ok(stream) =
+    file_stream.open(tmp_file_name, [
+      file_open_mode.Write,
+      file_open_mode.Raw,
+    ])
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.type_ == option.Some(file_type.Regular)
+  assert info.size == option.Some(0)
+
+  // grow
+  let file_size = 4096
+  assert file_stream.position(stream, file_stream.BeginningOfFile(file_size)) == Ok(file_size)
+  assert file_stream.truncate(stream) == Ok(Nil)
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.size == option.Some(file_size)
+
+  // shrink
+  assert file_stream.position(stream, file_stream.BeginningOfFile(0)) == Ok(0)
+  assert file_stream.truncate(stream) == Ok(Nil)
+
+  let assert Ok(info) = file_stream.read_file_info(stream)
+  assert info.size == option.Some(0)
 
   assert file_stream.close(stream) == Ok(Nil)
   assert simplifile.delete(tmp_file_name) == Ok(Nil)

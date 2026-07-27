@@ -1,7 +1,10 @@
 //// Work with file streams in Gleam.
 
+import file_streams/file_access.{type FileAccess}
+import file_streams/file_info.{type FileInfo, FileInfo}
 import file_streams/file_open_mode.{type FileOpenMode}
 import file_streams/file_stream_error.{type FileStreamError}
+import file_streams/file_type.{type FileType}
 import file_streams/internal/raw_location
 import file_streams/internal/raw_read_result.{type RawReadResult}
 import file_streams/internal/raw_result.{type RawResult}
@@ -332,6 +335,79 @@ pub fn sync(stream: FileStream) -> Result(Nil, FileStreamError) {
 @external(erlang, "file", "sync")
 @external(javascript, "../file_streams_ffi.mjs", "file_sync")
 fn file_sync(io_device: IoDevice) -> RawResult
+
+/// Reads metadata from a file stream.
+///
+pub fn read_file_info(stream: FileStream) -> Result(FileInfo, FileStreamError) {
+  use
+    #(
+      size,
+      type_,
+      access,
+      atime,
+      mtime,
+      ctime,
+      mode,
+      links,
+      major_device,
+      minor_device,
+      inode,
+      uid,
+      gid,
+    )
+  <- result.try(file_read_file_info(stream.io_device))
+  Ok(FileInfo(
+    size:,
+    type_:,
+    access:,
+    atime:,
+    mtime:,
+    ctime:,
+    mode:,
+    links:,
+    major_device:,
+    minor_device:,
+    inode:,
+    uid:,
+    gid:,
+  ))
+}
+
+@external(erlang, "file_streams_ffi", "file_read_file_info")
+@external(javascript, "../file_streams_ffi.mjs", "file_read_file_info")
+fn file_read_file_info(
+  io_device: IoDevice,
+) -> Result(
+  #(
+    Option(Int),
+    Option(FileType),
+    Option(FileAccess),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+    Option(Int),
+  ),
+  FileStreamError,
+)
+
+/// Truncates a file stream that was opened for writing at the current position.
+///
+pub fn truncate(stream: FileStream) -> Result(Nil, FileStreamError) {
+  case file_truncate(stream.io_device) {
+    raw_result.Ok -> Ok(Nil)
+    raw_result.Error(e) -> Error(e)
+  }
+}
+
+@external(erlang, "file", "truncate")
+@external(javascript, "../file_streams_ffi.mjs", "file_truncate")
+fn file_truncate(io_device: IoDevice) -> RawResult
 
 /// Reads bytes from a file stream. The returned number of bytes may be fewer
 /// than the number that was requested if the end of the file stream was
